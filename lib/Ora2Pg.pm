@@ -1666,6 +1666,7 @@ sub _init
 	$self->{use_reserved_words} ||= 0;
 	$self->{pkey_in_create} ||= 0;
 	$self->{ukeys_in_create} ||= 0;
+	$self->{unique_nulls_not_distinct} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
 	$self->{stop_on_error} = 1 if (not defined $self->{stop_on_error});
@@ -10944,6 +10945,7 @@ sub _get_primary_keys
         {
                 $self->logit("self->{pkey_in_create}: $self->{pkey_in_create}\n",1);
                 $self->logit("self->{ukeys_in_create}: $self->{ukeys_in_create}\n",1);
+                $self->logit("self->{unique_nulls_not_distinct}: $self->{unique_nulls_not_distinct}\n",1);
         }
 
 	foreach my $consname (sort { $unique_key->{$a}{type} <=> $unique_key->{$b}->{type} or $a cmp $b  } keys %$unique_key)
@@ -10954,7 +10956,11 @@ sub _get_primary_keys
 		my $constgen =   $unique_key->{$consname}{generated};
 		my $index_name = $unique_key->{$consname}{index_name};
 		my @conscols = @{$unique_key->{$consname}{columns}};
-		my %constypenames = ('U' => 'UNIQUE', 'P' => 'PRIMARY KEY');
+		my %constypenames = 
+		(
+			'U' => ( $self->{unique_nulls_not_distinct} ? 'UNIQUE NULLS NOT DISTINCT' : 'UNIQUE'),
+			'P' => 'PRIMARY KEY'
+                );
 		my $constypename = $constypenames{$constype};
 		for (my $i = 0; $i <= $#conscols; $i++)
 		{
@@ -11016,7 +11022,11 @@ sub _create_unique_keys
 		# Exclude unique index used in PK when column list is the same
 		next if (($constype eq 'U') && exists $pkcollist{$table} && ($pkcollist{$table} eq join(",", @conscols)));
 
-		my %constypenames = ('U' => 'UNIQUE', 'P' => 'PRIMARY KEY');
+		my %constypenames = 
+		(
+			'U' => ( $self->{unique_nulls_not_distinct} ? 'UNIQUE NULLS NOT DISTINCT' : 'UNIQUE'),
+			'P' => 'PRIMARY KEY'
+                );
 		my $constypename = $constypenames{$constype};
 		for (my $i = 0; $i <= $#conscols; $i++)
 		{
