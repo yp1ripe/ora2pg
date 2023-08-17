@@ -1668,6 +1668,7 @@ sub _init
 	$self->{ukeys_in_create} ||= 0;
 	$self->{unique_nulls_not_distinct} ||= 0;
 	$self->{fkeys_in_create} ||= 0;
+	$self->{checks_in_create} ||= 0;
 	$self->{skip_set_nn} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
@@ -8422,6 +8423,9 @@ sub export_table
 					$sql_output .= $fk;
 				}
 			}
+			if ($self->{checks_in_create}) {
+				$sql_output .= $self->_get_check_constraint($table, $self->{tables}{$table}{check_constraint},$self->{tables}{$table}{field_name}, @skip_column_check);
+			}
 			$sql_output =~ s/,$//;
 			$sql_output .= ')';
 
@@ -11157,12 +11161,76 @@ sub _create_check_constraint
 					$converted_as_boolean = 1;
 				}
 			}
-			if (!$converted_as_boolean)
+			if (!$converted_as_boolean && !$self->{checks_in_create})
 			{
 				$chkconstraint = Ora2Pg::PLSQL::convert_plsql_code($self, $chkconstraint);
 				$chkconstraint =~ s/,$//;
 				$out .= "ALTER TABLE $table DROP CONSTRAINT $self->{pg_supports_ifexists} $k;\n" if ($self->{drop_if_exists});
 				$out .= "ALTER TABLE $table ADD CONSTRAINT $k CHECK ($chkconstraint)$validate;\n";
+			}
+		}
+	}
+
+	return $out;
+}
+=head2 _get_check_constraint
+
+This function return SQL code snippet to embed the check constraints within a CREATE TABLE
+
+=cut
+sub _get_check_constraint
+{
+	my ($self, $table, $check_constraint, $field_name, @skip_column_check) = @_;
+
+	my $tbsaved = $table;
+	$table = $self->get_replaced_tbname($table);
+
+	my $out = '';
+	# Set the check constraint definition 
+	foreach my $k (sort keys %{$check_constraint->{constraint}})
+	{
+		my $chkconstraint = $check_constraint->{constraint}->{$k}{condition};
+		my $validate = '';
+		$validate = ' NOT VALID' if ($check_constraint->{constraint}->{$k}{validate} eq 'NOT VALIDATED');
+		next if (!$chkconstraint);
+		if ($chkconstraint =~ /^([^\s]+)\s+IS\s+NOT\s+NULL$/i)
+		{
+			next;
+		}
+		else
+		{
+			if (exists $self->{replaced_cols}{"\L$tbsaved\E"} && $self->{replaced_cols}{"\L$tbsaved\E"})
+			{
+				foreach my $c (keys %{$self->{replaced_cols}{"\L$tbsaved\E"}})
+				{
+					$chkconstraint =~ s/"$c"/"$self->{replaced_cols}{"\L$tbsaved\E"}{"\L$c\E"}"/gsi;
+					$chkconstraint =~ s/\b$c\b/$self->{replaced_cols}{"\L$tbsaved\E"}{"\L$c\E"}/gsi;
+				}
+			}
+			if ($self->{plsql_pgsql}) {
+				$chkconstraint = Ora2Pg::PLSQL::convert_plsql_code($self, $chkconstraint);
+			}
+			foreach my $c (@$field_name)
+			{
+				my $ret = $self->quote_object_name($c);
+				$chkconstraint =~ s/\b$c\b/$ret/igs;
+				$chkconstraint =~ s/""/"/igs;
+			}
+			$k = $self->quote_object_name($k);
+
+			# If the column has been converted as a boolean do not export the constraint
+			my $converted_as_boolean = 0;
+			foreach my $c (@$field_name)
+			{
+				if (grep(/^$c$/i, @skip_column_check) && $chkconstraint =~ /\b$c\b/i) {
+					$converted_as_boolean = 1;
+				}
+			}
+			if (!$converted_as_boolean)
+			{
+				$chkconstraint = Ora2Pg::PLSQL::convert_plsql_code($self, $chkconstraint);
+				$chkconstraint =~ s/,$//;
+				$out .= "\tCONSTRAINT $k CHECK ($chkconstraint)$validate,\n";
 			}
 		}
 	}
