@@ -1667,6 +1667,7 @@ sub _init
 	$self->{pkey_in_create} ||= 0;
 	$self->{ukeys_in_create} ||= 0;
 	$self->{unique_nulls_not_distinct} ||= 0;
+	$self->{skip_set_nn} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
 	$self->{stop_on_error} = 1 if (not defined $self->{stop_on_error});
@@ -11113,7 +11114,12 @@ sub _create_check_constraint
 		{
 			my $col = $1;
 			$col =~ s/"//g;
-			$out .= "ALTER TABLE $table ALTER COLUMN " . $self->quote_object_name($col) . " SET NOT NULL;\n";
+			if( $self->{debug} &&  $self->{skip_set_nn})
+			{
+				$self->logit("Skipped SET NOT NULL for $table.$col because SKIP_SET_NN is $self->{skip_set_nn}\n",1);
+			}
+			$out .= "ALTER TABLE $table ALTER COLUMN " . $self->quote_object_name($col) . " SET NOT NULL;\n"
+				unless $self->{skip_set_nn};
 		}
 		else
 		{
@@ -13743,7 +13749,7 @@ sub read_config
 				$self->logit("Done importing $val.\n",1);
 			}
 		}
-		elsif ($var =~ /^SKIP/)
+		elsif ($var =~ /^SKIP$/)
 		{
 			if ($val)
 			{
