@@ -1665,6 +1665,7 @@ sub _init
 	$self->{export_invalid} ||= 0;
 	$self->{use_reserved_words} ||= 0;
 	$self->{pkey_in_create} ||= 0;
+	$self->{ukeys_in_create} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
 	$self->{stop_on_error} = 1 if (not defined $self->{stop_on_error});
@@ -10939,9 +10940,16 @@ sub _get_primary_keys
 	my $out = '';
 
 	# Set the unique (and primary) key definition 
-	foreach my $consname (keys %$unique_key)
+        if ($self->{debug})
+        {
+                $self->logit("self->{pkey_in_create}: $self->{pkey_in_create}\n",1);
+                $self->logit("self->{ukeys_in_create}: $self->{ukeys_in_create}\n",1);
+        }
+
+	foreach my $consname (sort { $unique_key->{$a}{type} <=> $unique_key->{$b}->{type} or $a cmp $b  } keys %$unique_key)
 	{
-		next if ($self->{pkey_in_create} && ($unique_key->{$consname}{type} ne 'P'));
+		next unless ($self->{pkey_in_create} && ($unique_key->{$consname}{type} eq 'P') ||
+                         $self->{ukeys_in_create} && ($unique_key->{$consname}{type} eq 'U'));
 		my $constype =   $unique_key->{$consname}{type};
 		my $constgen =   $unique_key->{$consname}{generated};
 		my $index_name = $unique_key->{$consname}{index_name};
@@ -10960,12 +10968,12 @@ sub _get_primary_keys
 		my $columnlist = join(',', @conscols);
 		if ($columnlist)
 		{
-			if ($self->{pkey_in_create})
+			if ($self->{pkey_in_create} || $self->{ukeys_in_create})
 			{
 				if (!$self->{keep_pkey_names} || ($constgen eq 'GENERATED NAME')) {
-					$out .= "\tPRIMARY KEY ($columnlist)";
+					$out .= "\t$constypename ($columnlist)";
 				} else {
-					$out .= "\tCONSTRAINT " .  $self->quote_object_name($consname) . " PRIMARY KEY ($columnlist)";
+					$out .= "\tCONSTRAINT " .  $self->quote_object_name($consname) . " $constypename ($columnlist)";
 				}
 				if ($self->{use_tablespace} && $self->{tables}{$table}{idx_tbsp}{$index_name} && !grep(/^$self->{tables}{$table}{idx_tbsp}{$index_name}$/i, @{$self->{default_tablespaces}})) {
 					$out .= " USING INDEX TABLESPACE " .  $self->quote_object_name($self->{tables}{$table}{idx_tbsp}{$index_name});
@@ -10974,7 +10982,6 @@ sub _get_primary_keys
 			}
 		}
 	}
-	$out =~ s/,$//s;
 
 	return $out;
 }
@@ -10997,7 +11004,8 @@ sub _create_unique_keys
 	# Set the unique (and primary) key definition 
 	foreach my $consname (keys %$unique_key)
 	{
-		next if ($self->{pkey_in_create} && ($unique_key->{$consname}{type} eq 'P'));
+		next if ($self->{pkey_in_create} && ($unique_key->{$consname}{type} eq 'P') ||
+                         $self->{ukeys_in_create} && ($unique_key->{$consname}{type} eq 'U'));
 		my $constype =   $unique_key->{$consname}{type};
 		my $constgen =   $unique_key->{$consname}{generated};
 		my $index_name = $unique_key->{$consname}{index_name};
