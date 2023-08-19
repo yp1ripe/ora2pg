@@ -39,6 +39,7 @@ use File::Spec qw/ tmpdir /;
 use File::Temp qw/ tempfile /;
 use Benchmark;
 use Encode;
+use Data::Dumper;
 
 #set locale to LC_NUMERIC C
 setlocale(LC_NUMERIC,"C");
@@ -10709,8 +10710,9 @@ CREATE TRIGGER $trig_name BEFORE INSERT OR UPDATE
 			}
 			else
 			{
+				my @cols = split(/\s*,\s*/, $columns);
 				$str .= "CREATE$unique INDEX$concurrently " . $idxname
-						. " ON $table ($columns)";
+						. " ON $table ($columns)".$self->_unique_needs_nulls_not_distinct($tbsaved, $idxname, @cols);
 			}
 			if ($#{$self->{$objtyp}{$tbsaved}{idx_type}{$idx}{type_include}} >= 0) {
 				$str .= " INCLUDE (" . join(', ', @{$self->{$objtyp}{$tbsaved}{idx_type}{$idx}{type_include}}) . ')';
@@ -10940,6 +10942,44 @@ sub is_primary_key_column
 	return 0;
 }
 
+=head2 _unique_needs_nulls_not_distinct
+
+This function  'UNIQUE NULLS NOT DISTINCT' if the unique constraint/index fits the following conditions
+a) number of columns > 1
+b) there is a mix of null-able and not null columns
+
+
+=cut
+
+sub _unique_needs_nulls_not_distinct
+{
+	my( $self, $table, $consname,  @conscols ) = @_;
+	my $any_null_cols = 0;
+	my $any_notnull_cols = 0;
+        my $ret = '';
+	$self->logit("_unique_needs_nulls_not_distinct: $table $consname @conscols\n",2);
+	$self->logit("self->{unique_nulls_not_distinct}: $self->{unique_nulls_not_distinct}\n",2);
+
+	return $ret if ($#conscols == 0 || !$self->{unique_nulls_not_distinct} || $self->{pg_version} < 15);
+
+	for (my $i = 0; $i <= $#conscols; $i++)
+	{
+		my $realcolname = "\U$conscols[$i]\E";
+		my $is_null =  $self->{tables}{$table}{column_info}{$realcolname}[3] ne 'N' ? 1 : 0 ;
+		$any_null_cols ||= $is_null;
+		$any_notnull_cols ||= !$is_null;
+		$self->logit("_unique_needs_nulls_not_distinct: $realcolname $is_null\n",2);
+	}
+	$self->logit("_unique_needs_nulls_not_distinct: $consname has null cols\n",2) if $any_null_cols;
+	$self->logit("_unique_needs_nulls_not_distinct: $consname has not null cols\n",2) if $any_notnull_cols;
+
+	if ($any_null_cols && $any_notnull_cols) {
+	        $ret = ' NULLS NOT DISTINCT';
+		$self->logit("_unique_needs_nulls_not_distinct: $consname needs nulls not distinct\n",1);
+	};
+
+	return $ret;
+}
 
 =head2 _get_primary_keys
 
@@ -10957,7 +10997,6 @@ sub _get_primary_keys
         {
                 $self->logit("self->{pkey_in_create}: $self->{pkey_in_create}\n",1);
                 $self->logit("self->{ukeys_in_create}: $self->{ukeys_in_create}\n",1);
-                $self->logit("self->{unique_nulls_not_distinct}: $self->{unique_nulls_not_distinct}\n",1);
         }
 
 	foreach my $consname (sort { $unique_key->{$a}{type} <=> $unique_key->{$b}->{type} or $a cmp $b  } keys %$unique_key)
@@ -10970,7 +11009,7 @@ sub _get_primary_keys
 		my @conscols = @{$unique_key->{$consname}{columns}};
 		my %constypenames = 
 		(
-			'U' => ( $self->{unique_nulls_not_distinct} ? 'UNIQUE NULLS NOT DISTINCT' : 'UNIQUE'),
+			'U' => 'UNIQUE'.$self->_unique_needs_nulls_not_distinct($table, $consname,  @conscols) ,
 			'P' => 'PRIMARY KEY'
                 );
 		my $constypename = $constypenames{$constype};
@@ -10980,6 +11019,7 @@ sub _get_primary_keys
 			if (exists $self->{replaced_cols}{"\L$table\E"}{"\L$conscols[$i]\E"} && $self->{replaced_cols}{"\L$table\E"}{"\L$conscols[$i]\E"}) {
 				$conscols[$i] = $self->{replaced_cols}{"\L$table\E"}{"\L$conscols[$i]\E"};
 			}
+			# nullable columns
 		}
 		map { $_ = $self->quote_object_name($_) } @conscols;
 
@@ -11036,7 +11076,7 @@ sub _create_unique_keys
 
 		my %constypenames = 
 		(
-			'U' => ( $self->{unique_nulls_not_distinct} ? 'UNIQUE NULLS NOT DISTINCT' : 'UNIQUE'),
+			'U' => 'UNIQUE'.$self->_unique_needs_nulls_not_distinct($table, $consname,  @conscols),
 			'P' => 'PRIMARY KEY'
                 );
 		my $constypename = $constypenames{$constype};
