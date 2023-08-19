@@ -120,7 +120,7 @@ GetOptions (
         'b|basedir=s' => \$OUTDIR,
         'c|conf=s' => \$FILE_CONF,
         'C|cdc_file=s' => \$CDC_FILE,
-        'd|debug!' => \$DEBUG,
+        'd|debug+' => \$DEBUG,
         'D|data_type=s' => \$DATA_TYPE,
 	'e|exclude=s' => \$EXCLUDE,
 	'g|grant_object=s' => \$GRANT_OBJECT,
