@@ -1671,6 +1671,7 @@ sub _init
 	$self->{fkeys_in_create} ||= 0;
 	$self->{checks_in_create} ||= 0;
 	$self->{skip_set_nn} ||= 0;
+	$self->{align_column_types} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
 	$self->{stop_on_error} = 1 if (not defined $self->{stop_on_error});
@@ -8082,6 +8083,29 @@ sub export_table
 				push(@collist, $self->{tables}{$table}{column_info}{$k}[0]);
 			}
 
+			my $max_col_name_length = 0,$max_pretty_tabs_num;
+
+			$self->logit("export_table: ALIGN_COLUMN_TYPES  $self->{align_column_types}\n",1);
+			if( $self->{align_column_types} ) {
+				foreach my $k (keys %{$self->{tables}{$table}{column_info}}) {
+					my $f = $self->{tables}{$table}{column_info}{$k};
+					my $fname=$f->[0];
+
+					if (exists $self->{replaced_cols}{"\L$table\E"}{"\L$fname\E"} &&
+						$self->{replaced_cols}{"\L$table\E"}{"\L$fname\E"})
+					{
+						$fname = $self->{replaced_cols}{"\L$table\E"}{"\L$fname\E"};
+					}
+					my $col_name_length = length($fname);
+					$max_col_name_length = $col_name_length if( $col_name_length > $max_col_name_length );
+
+				}
+				$self->logit("export_table: max_col_name_length=$max_col_name_length\n",2);
+				$max_pretty_tabs_num = POSIX::ceil($max_col_name_length/8);
+				++$max_pretty_tabs_num if ($max_col_name_length/8 == $max_pretty_tabs_num);
+				$self->logit("export_table: max_pretty_tabs_num=$max_pretty_tabs_num\n",2);
+			}
+
 			# Extract column information following the position order
 			foreach my $k (sort { 
 					if (!$self->{reordering_columns}) {
@@ -8226,7 +8250,15 @@ sub export_table
 				{
 					$type .= ' COLLATE ' . $self->{case_insensitive_search};
 				}
-				$sql_output .= "\t$fname $type";
+				
+				my $pretty_tabs_num = 1;
+				if( $self->{align_column_types} ) {
+					$pretty_tabs_num = $max_pretty_tabs_num - POSIX::floor(length($fname)/8);
+					$pretty_tabs_num ||= 1;
+				}
+				my $tabs = "\t" x $pretty_tabs_num;
+				$sql_output .= "\t${fname}${tabs}${type}";
+
 				if ($foreign && $self->is_primary_key_column($table, $f->[0])) {
 					 $sql_output .= " OPTIONS (key 'true')";
 				}
