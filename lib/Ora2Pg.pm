@@ -888,9 +888,10 @@ sub _init
 
 	# Use custom temp directory if specified
 	$TMP_DIR = $options{temp_dir} || $TMP_DIR;
+	$self->{debug} = $options{debug} if ($options{debug} >= 1);
 
 	# Read configuration file
-	$self->read_config($options{config}) if ($options{config});
+	$self->read_config($options{config}, $options{override}) if ($options{config});
 
 	# Those are needed by DBI
 	$ENV{ORACLE_HOME} = $AConfig{'ORACLE_HOME'} if ($AConfig{'ORACLE_HOME'});
@@ -13881,20 +13882,37 @@ This function read the specified configuration file.
 
 sub read_config
 {
-	my ($self, $file) = @_;
+	my ($self, $file, $override_hashref ) = @_;
+
+	$self->logit("FATAL:read_config \$override_hashref isn't a HASH ref $override_hashref\n", 0, 1) 
+		unless ( $override_hashref && ref($override_hashref) eq 'HASH');
 
 	my $fh = new IO::File;
+
+	my $override = join("\n",  map { "$_ $override_hashref->{$_}"; } keys %{$override_hashref} ). "\n";
+	$self->logit("read_config:0: override $override \n", 2);
+	open (my $fh_override,  "<", \$override) or
+		$self->logit("FATAL: can't emulate override configuration file $!\n", 0, 1);
+
 	binmode($fh, ":utf8");
 	$fh->open($file) or $self->logit("FATAL: can't read configuration file $file, $!\n", 0, 1);
-	while (my $l = <$fh>)
+	while (my $l = <$fh> || <$fh_override> ) 
 	{
 		chomp($l);
+
+		$self->logit("read_config:1: $l \n", 2);
+
 		$l =~ s/\r//gs;
 		$l =~ s/^\s*\#.*$//g;
 		next if (!$l || ($l =~ /^\s+$/));
 		$l =~ s/^\s*//; $l =~ s/\s*$//;
+
+		$self->logit("read_config:2: $l \n", 2);
+
 		my ($var, $val) = split(/\s+/, $l, 2);
 		$var = uc($var);
+		$self->logit("read_config:3: $var $val\n", 2);
+		
                 if ($var eq 'IMPORT')
 		{
 			if ($val)

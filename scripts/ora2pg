@@ -112,6 +112,8 @@ my @MSSQL_SOURCES_ARRAY = qw( PACKAGE VIEW TRIGGER FUNCTION PROCEDURE PARTITION 
 
 my @GRANT_OBJECTS_ARRAY = ('USER','TABLE','VIEW','MATERIALIZED VIEW','SEQUENCE','PROCEDURE','FUNCTION','PACKAGE BODY','TYPE','SYNONYM','DIRECTORY');
 
+my %OVERRIDE_CONFIG = ();
+
 my $TMP_DIR      = File::Spec->tmpdir() || '/tmp';
 
 # Collect command line arguments
@@ -135,6 +137,7 @@ GetOptions (
 	'n|namespace=s' => \$SCHEMA,
 	'N|pg_schema=s' => \$PG_SCHEMA,
         'o|out=s' => \$OUTFILE,
+	'O|override=s' => \%OVERRIDE_CONFIG,
 	'p|plsql!' => \$PLSQL,
 	'P|parallel=i' =>\$PARALLEL_TABLES,
 	'q|quiet!' => \$QUIET,
@@ -398,6 +401,7 @@ my $schema = new Ora2Pg (
 	cdc_file => $CDC_FILE,
 	drop_if_exists => $DROP_IF_EXISTS,
 	delete => join(' ', @DELETE_CLAUSE),
+	override => \%OVERRIDE_CONFIG,
 );
 
 # Look at configuration file if an input file is defined
@@ -481,6 +485,7 @@ Usage: ora2pg [-dhpqv --estimate_cost --dump_as_html] [--option value]
     -N | --pg_schema schema : Set PostgreSQL's search_path.
     -o | --out file   : Set the path to the output file where SQL will
                         be written. Default: output.sql in running directory.
+    -O | --override config_var=val : Override config var with val
     -p | --plsql      : Enable PLSQL to PLPGSQL code conversion.
     -P | --parallel num: Number of parallel tables to extract at the same time.
     -q | --quiet      : Disable progress bar.
