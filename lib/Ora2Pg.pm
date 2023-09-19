@@ -2905,7 +2905,7 @@ sub _parse_constraint
 	if ($c =~ /^([^\s]+)\s+(UNIQUE|PRIMARY KEY)\s*\(([^\)]+)\)/is)
 	{
 		my $tp = 'U';
-		$tp = 'P' if ($2 eq 'PRIMARY KEY');
+		$tp = 'P' if ("\U$2\E" eq 'PRIMARY KEY');
 		$self->{tables}{$tb_name}{unique_key}{$1} = { (
 			type => $tp, 'generated' => 0, 'index_name' => $1,
 			columns => ()
@@ -3053,6 +3053,7 @@ sub read_schema_from_file
 		{
 			my $tb_name = $3;
 			$tb_name =~ s/"//gs;
+			$tb_name = "\U$tb_name\E";
 			my $tb_def = $4;
 			$tb_def =~ s/\s+/ /gs;
 			$self->{tables}{$tb_name}{table_info}{type} = 'TEMPORARY ' if ($2);
@@ -3068,6 +3069,8 @@ sub read_schema_from_file
 			my $tb_def  = $4;
 			my $tb_param  = '';
 			$tb_name =~ s/"//gs;
+			$tb_name = "\U$tb_name\E";
+			$self->logit("read_schema_from_file: found table $tb_name\n",2);
 			$self->{tables}{$tb_name}{table_info}{type} = 'TEMPORARY ' if ($2);
 			$self->{tables}{$tb_name}{table_info}{type} .= 'TABLE';
 			$self->{tables}{$tb_name}{table_info}{num_rows} = 0;
@@ -3143,6 +3146,7 @@ sub read_schema_from_file
 					$c =~ s/\%\%COLNAME(\d+)\%\%/$col_name{$1}/sg;
 					if (!$self->{preserve_case}) {
 						$c_name =~ s/"//gs;
+						$c_name = "\U$c_name\E";
 					}
 					# Retrieve all columns information
 					if (!grep(/^\Q$c_name\E$/i, 'CONSTRAINT','INDEX'))
@@ -3379,6 +3383,7 @@ sub read_schema_from_file
 			my $idx_def = $4;
 			$idx_name =~ s/"//gs;
 			$tb_name =~ s/\s+/ /gs;
+			$tb_name = "\U$tb_name\E";
 			$idx_def =~ s/\s+/ /gs;
 			$idx_def =~ s/\s*nologging//is;
 			$idx_def =~ s/STORAGE\s*\([^\)]+\)\s*//is;
@@ -3525,6 +3530,7 @@ sub read_comment_from_file
 		my $tb_name = $1;
 		my $tb_comment = $2;
 		$tb_name =~ s/"//g;
+		$tb_name = "\U$tb_name\E";
 		$tb_comment =~ s/'\s*$//g;
 		if (exists $self->{tables}{$tb_name}) {
 			$self->{tables}{$tb_name}{table_info}{comment} = $tb_comment;
@@ -3550,6 +3556,7 @@ sub read_comment_from_file
 			my $cname = $1;
 			$tb_name =~ s/\%\%COLNAME(\d+)\%\%/$col_name{$1}/sg;
 			$tb_name =~ s/"//g;
+			$tb_name = "\U$tb_name\E";
 			$cname =~ s/\%\%COLNAME(\d+)\%\%/$col_name{$1}/sg;
 			$cname =~ s/"//g;
 			$cname =~ s/\./_/g;
