@@ -2638,7 +2638,7 @@ sub _tables
 			next;
 		}
 		# Try to respect order specified in the TABLES limited extraction array
-		if ($#{$self->{limited}{TABLE}} > 0)
+		if (scalar(@{$self->{limited}{TABLE}}) > 0)
 		{
 			$self->{tables}{$t}{internal_id} = 0;
 			for (my $j = 0; $j <= $#{$self->{limited}{TABLE}}; $j++)
@@ -3015,6 +3015,52 @@ sub _get_dml_from_file
 	return $content;
 }
 
+sub _limited_obj_find_int_id
+{
+	use strict vars;
+	use warnings;
+
+	my ( $self, $obj_type, $obj_name )  = @_;
+	$self->logit("_limited_obj_find_int_id must be called with 2 args\n",0,1)
+		unless ( $obj_type && $obj_name || grep {$obj_type eq $_ } qw(TABLE SEQUENCE));
+
+	my $lc_plural = lc( $obj_type . 's' );
+	my $internal_id = undef;
+	for (my $j = 0; $j <= $#{$self->{limited}{$obj_type}}; $j++)
+	{
+		my $expr = $self->{limited}{$obj_type}->[$j];
+		$self->logit("_limited_obj_find_int_id: comparing '$expr'  and $obj_name\n",2);
+		my $has_metachars = 0;
+                foreach my $meta_chr ( qw/ . + ? { } [ ] \\ * $ ^ ( ) | / )
+		{
+			$self->logit("_limited_obj_find_int_id:index( $expr , '$meta_chr')\n",3);
+			if( $has_metachars = (index($expr, $meta_chr) == -1 ? 0 : 1 ) )
+			{
+				$self->logit("_limited_obj_find_int_id:match!\n",2);
+				last;
+			}
+		}
+		my $re = eval { qr/^$expr/i };
+		if ( $has_metachars && ref($re) eq 'Regexp' && !$@ )
+		{
+			if( $obj_name =~ /$re/ )
+			{
+				$self->logit("_limited_obj_find_int_id: treating '$expr' as a RE '$re' and got a match\n",2);
+				$internal_id = $j;
+				last;
+			}
+		} elsif (uc($self->{limited}{$obj_type}->[$j]) eq uc($obj_name))
+		{
+			$self->logit("_limited_obj_find_int_id: treating '$expr' as a $obj_type name and got a match\n",2);
+			$internal_id = $j;
+			last;
+		}
+	}
+	no warnings;
+	$self->logit("_limited_obj_find_int_id: returning ".(defined($internal_id) ? $internal_id : 'undef')." for $obj_type $obj_name\n",2);
+	return $internal_id;
+}
+
 sub read_schema_from_file
 {
 	my $self = shift;
@@ -3061,8 +3107,15 @@ sub read_schema_from_file
 			$self->{tables}{$tb_name}{table_info}{type} = 'TEMPORARY ' if ($2);
 			$self->{tables}{$tb_name}{table_info}{type} .= 'TABLE';
 			$self->{tables}{$tb_name}{table_info}{num_rows} = 0;
-			$tid++;
-			$self->{tables}{$tb_name}{internal_id} = $tid;
+			if (scalar(@{$self->{limited}{TABLE}}) > 0)
+			{
+				$self->logit("read_schema_from_file: limited tables\n",2);
+				$self->{tables}{$tb_name}{internal_id} = $self->_limited_obj_find_int_id( 'TABLE', $tb_name );
+			} else {
+				$self->logit("read_schema_from_file: unlimited tables\n",2);
+				$tid++;
+				$self->{tables}{$tb_name}{internal_id} = $tid;
+			}
 			$self->{tables}{$tb_name}{table_as} = $tb_def;
 		}
 		elsif ($content =~ s/CREATE\s+(GLOBAL|PRIVATE)?\s*(TEMPORARY)?\s*TABLE[\s]+([^\s\(]+)\s*([^;]+);//is)
@@ -3076,8 +3129,15 @@ sub read_schema_from_file
 			$self->{tables}{$tb_name}{table_info}{type} = 'TEMPORARY ' if ($2);
 			$self->{tables}{$tb_name}{table_info}{type} .= 'TABLE';
 			$self->{tables}{$tb_name}{table_info}{num_rows} = 0;
-			$tid++;
-			$self->{tables}{$tb_name}{internal_id} = $tid;
+			if (scalar(@{$self->{limited}{TABLE}}) > 0)
+			{
+				$self->logit("read_schema_from_file: limited tables\n",2);
+				$self->{tables}{$tb_name}{internal_id} = $self->_limited_obj_find_int_id( 'TABLE', $tb_name );
+			} else {
+				$self->logit("read_schema_from_file: unlimited tables\n",2);
+				$tid++;
+				$self->{tables}{$tb_name}{internal_id} = $tid;
+			}
 			# For private temporary table extract the ON COMMIT information (18c)
 			if ($tb_def =~ s/ON\s+COMMIT\s+PRESERVE\s+DEFINITION//is)
 			{
@@ -3429,7 +3489,7 @@ sub read_schema_from_file
 				$self->{tables}{$tb_name}{idx_type}{$idx_name}{type} = 'FUNCTION-BASED';
 			}
 
-			if (!exists $self->{tables}{$tb_name}{table_info}{type})
+			if (!exists $self->{tables}{$tb_name}{table_info}{type} && scalar(@{$self->{limited}{TABLE}}) == 0)
 			{
 				$self->{tables}{$tb_name}{table_info}{type} = 'TABLE';
 				$self->{tables}{$tb_name}{table_info}{num_rows} = 0;
@@ -3518,6 +3578,14 @@ sub read_schema_from_file
 
 	# Extract comments
 	$self->read_comment_from_file();
+	if( scalar( @{$self->{limited}{TABLE}} ) > 0 ) {
+		foreach my $tb_name ( keys $self->{tables} ) {
+			unless ( defined ( $self->{tables}{$tb_name}{internal_id} ) ) {
+				$self->logit("read_schema_from_file: deleted unmatched $tb_name\n",2);
+				delete $self->{tables}{$tb_name};
+			}
+		}
+	}
 }
 
 sub read_comment_from_file
