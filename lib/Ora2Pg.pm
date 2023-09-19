@@ -3019,6 +3019,7 @@ sub read_schema_from_file
 {
 	my $self = shift;
 
+	$self->logit("read_schema_from_file: called\n",1);
 	# Load file in a single string
 	my $content = $self->_get_dml_from_file();
 
@@ -3032,6 +3033,7 @@ sub read_schema_from_file
 	foreach $content (@statements)
 	{
 		$content .= ';';
+		$self->logit("read_schema_from_file: $content\n",2);
 
 		# Remove some unwanted and unused keywords from the statements
 		$content =~ s/\s+(PARALLEL|COMPRESS)\b//igs;
@@ -3110,6 +3112,7 @@ sub read_schema_from_file
 			my $cur_c_name = '';
 			foreach my $c (@column_defs)
 			{
+				$self->logit("read_schema_from_file:coldef loop $c\n",2);
 				next if (!$c);
 
 				# Replace temporary substitution
@@ -3129,6 +3132,7 @@ sub read_schema_from_file
 				$c =~ s/^FOREIGN KEY/CONSTRAINT o2pf_$tbn FOREIGN KEY/is;
 
 				$c =~ s/\(\s+/\(/gs;
+				$self->logit("read_schema_from_file:coldef loop $c\n",2);
 
 				# register column name between double quote
 				my $i = 0;
