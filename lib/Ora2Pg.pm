@@ -11004,7 +11004,9 @@ sub _unique_needs_nulls_not_distinct
 		my $realcolname = "\U$conscols[$i]\E";
 		my $colinfo =  $self->{tables}{$table}{column_info}{$realcolname};
 		next unless defined($colinfo);# an expression in FB index, for example, so inconclusive and let's skip it
-		my $is_null =  $self->{tables}{$table}{column_info}{$realcolname}[3] ne 'N' ? 1 : 0 ;
+		my $tmpval =  $self->{tables}{$table}{column_info}{$realcolname}[3];
+		$self->logit("_unique_needs_nulls_not_distinct: $realcolname tmpval $tmpval\n",2);
+		my $is_null =  ( $tmpval eq 'Y' || $tmpval == 1 ) ? 1 : 0 ;
 		$any_null_cols ||= $is_null;
 		$any_notnull_cols ||= !$is_null;
 		$self->logit("_unique_needs_nulls_not_distinct: $realcolname $is_null\n",2);
