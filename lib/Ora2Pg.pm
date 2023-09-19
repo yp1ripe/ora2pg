@@ -3880,7 +3880,11 @@ sub read_sequence_from_file
 		} else {
 			push(@seq_info, '');
 		}
-		push(@{$self->{sequences}{$s_name}}, @seq_info);
+		if( scalar(@{$self->{limited}{SEQUENCE}}) > 0 && defined($self->_limited_obj_find_int_id( 'SEQUENCE', $s_name)) ||
+			scalar(@{$self->{limited}{SEQUENCE}}) == 0 )
+		{
+			push(@{$self->{sequences}{$s_name}}, @seq_info);
+		}
 	}
 }
 
