@@ -890,6 +890,14 @@ sub _init
 	$TMP_DIR = $options{temp_dir} || $TMP_DIR;
 	$self->{debug} = $options{debug} if ($options{debug} >= 1);
 
+	# Log file handle
+	$self->{fhlog} = undef;
+	if ($self->{logfile})
+	{
+		$self->{fhlog} = new IO::File;
+		$self->{fhlog}->open(">>$self->{logfile}") or $self->logit("FATAL: can't log to $self->{logfile}, $!\n", 0, 1);
+	}
+
 	# Read configuration file
 	$self->read_config($options{config}, $options{override}) if ($options{config});
 
@@ -1330,13 +1338,6 @@ sub _init
 		push(@{$self->{sysusers}},'SYSTEM','CTXSYS','DBSNMP','EXFSYS','LBACSYS','MDSYS','MGMT_VIEW','OLAPSYS','ORDDATA','OWBSYS','ORDPLUGINS','ORDSYS','OUTLN','SI_INFORMTN_SCHEMA','SYS','SYSMAN','WK_TEST','WKSYS','WKPROXY','WMSYS','XDB','APEX_PUBLIC_USER','DIP','FLOWS_020100','FLOWS_030000','FLOWS_040100','FLOWS_010600','FLOWS_FILES','MDDATA','ORACLE_OCM','SPATIAL_CSW_ADMIN_USR','SPATIAL_WFS_ADMIN_USR','XS$NULL','PERFSTAT','SQLTXPLAIN','DMSYS','TSMSYS','WKSYS','APEX_040000','APEX_040200','DVSYS','OJVMSYS','GSMADMIN_INTERNAL','APPQOSSYS','DVSYS','DVF','AUDSYS','APEX_030200','MGMT_VIEW','ODM','ODM_MTR','TRACESRV','MTMSYS','OWBSYS_AUDIT','WEBSYS','WK_PROXY','OSE$HTTP$ADMIN','AURORA$JIS$UTILITY$','AURORA$ORB$UNAUTHENTICATED','DBMS_PRIVILEGE_CAPTURE','CSMIG', 'MGDSYS', 'SDE','DBSFWUSER');
 	}
 
-	# Log file handle
-	$self->{fhlog} = undef;
-	if ($self->{logfile})
-	{
-		$self->{fhlog} = new IO::File;
-		$self->{fhlog}->open(">>$self->{logfile}") or $self->logit("FATAL: can't log to $self->{logfile}, $!\n", 0, 1);
-	}
 
 	# Autoconvert SRID
 	if (not defined $self->{convert_srid} || ($self->{convert_srid} != 0)) {
