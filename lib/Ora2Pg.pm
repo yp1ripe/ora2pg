@@ -3866,7 +3866,7 @@ sub read_sequence_from_file
 		if ($s_def =~ /START\s+WITH\s+([\-\d]+)/i) {
 			push(@seq_info, $1);
 		} else {
-			push(@seq_info, '');
+			push(@seq_info, 1);
 		}
 		if ($s_def =~ /CACHE\s+(\d+)/i) {
 			push(@seq_info, $1);
