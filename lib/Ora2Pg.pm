@@ -3143,7 +3143,7 @@ sub read_schema_from_file
 			$self->{tables}{$tb_name}{table_info}{type} = 'TEMPORARY ' if ($2);
 			$self->{tables}{$tb_name}{table_info}{type} .= 'TABLE';
 			$self->{tables}{$tb_name}{table_info}{num_rows} = 0;
-			if (scalar(@{$self->{limited}{TABLE}}) > 0)
+			if( $self->_need_check_limited_obj('TABLE') )
 			{
 				$self->logit("read_schema_from_file: limited tables\n",2);
 				$self->{tables}{$tb_name}{internal_id} = $self->_limited_obj_find_int_id( 'TABLE', $tb_name );
@@ -3165,7 +3165,7 @@ sub read_schema_from_file
 			$self->{tables}{$tb_name}{table_info}{type} = 'TEMPORARY ' if ($2);
 			$self->{tables}{$tb_name}{table_info}{type} .= 'TABLE';
 			$self->{tables}{$tb_name}{table_info}{num_rows} = 0;
-			if (scalar(@{$self->{limited}{TABLE}}) > 0)
+			if( $self->_need_check_limited_obj('TABLE') )
 			{
 				$self->logit("read_schema_from_file: limited tables\n",2);
 				$self->{tables}{$tb_name}{internal_id} = $self->_limited_obj_find_int_id( 'TABLE', $tb_name );
@@ -3616,7 +3616,7 @@ sub read_schema_from_file
 
 	# Extract comments
 	$self->read_comment_from_file();
-	if( scalar( @{$self->{limited}{TABLE}} ) > 0 ) {
+	if( $self->_need_check_limited_obj('TABLE') ) {
 		foreach my $tb_name ( keys $self->{tables} ) {
 			unless ( defined ( $self->{tables}{$tb_name}{internal_id} ) ) {
 				$self->logit("read_schema_from_file: deleted unmatched $tb_name\n",2);
