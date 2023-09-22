@@ -3252,11 +3252,13 @@ sub read_schema_from_file
 							}
 							$self->{identity_info}{$tb_name}{$c_name}{options} =~ s/\s+/ /igs;
 						}
-						elsif ($c =~ s/\b(GENERATED ALWAYS AS|AS)\s+(.*)//is)
+						elsif ($c =~ s/\b(GENERATED ALWAYS AS|AS)\s+\((.*)\)\s+(VIRTUAL)?\s+(NOT NULL)?//is)
 						{
 							$virt_col = 'YES';
 							$c_default = $2;
+							$self->logit("read_schema_from_file:virt column $c-$c_default-$2\n",2);
 							$c_default =~ s/\s+VIRTUAL//is;
+							$self->logit("read_schema_from_file:virt column $c-$c_default-$2\n",2);
 						}
 						my $c_type = '';
 						if ($c =~ s/^\s*ENUM\s*(\([^\(\)]+\))\s*//is)
