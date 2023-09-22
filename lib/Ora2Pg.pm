@@ -3930,8 +3930,7 @@ sub read_sequence_from_file
 		} else {
 			push(@seq_info, '');
 		}
-		if( scalar(@{$self->{limited}{SEQUENCE}}) > 0 && defined($self->_limited_obj_find_int_id( 'SEQUENCE', $s_name)) ||
-			scalar(@{$self->{limited}{SEQUENCE}}) == 0 )
+		if( !$self->_need_check_limited_obj('SEQUENCE')  || defined($self->_limited_obj_find_int_id( 'SEQUENCE', $s_name)) )
 		{
 			push(@{$self->{sequences}{$s_name}}, @seq_info);
 		}
