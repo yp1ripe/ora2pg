@@ -13992,7 +13992,7 @@ sub read_config
 	my $fh = new IO::File;
 
 	my $override = join("\n",  map { "$_ $override_hashref->{$_}"; } keys %{$override_hashref} ). "\n";
-	$self->logit("read_config:0: override $override \n", 2);
+	$self->logit("read_config:0: override $override \n", 3);
 	open (my $fh_override,  "<", \$override) or
 		$self->logit("FATAL: can't emulate override configuration file $!\n", 0, 1);
 
@@ -14002,18 +14002,18 @@ sub read_config
 	{
 		chomp($l);
 
-		$self->logit("read_config:1: $l \n", 2);
+		$self->logit("read_config:1: $l \n", 4);
 
 		$l =~ s/\r//gs;
 		$l =~ s/^\s*\#.*$//g;
 		next if (!$l || ($l =~ /^\s+$/));
 		$l =~ s/^\s*//; $l =~ s/\s*$//;
 
-		$self->logit("read_config:2: $l \n", 2);
+		$self->logit("read_config:2: $l \n", 3);
 
 		my ($var, $val) = split(/\s+/, $l, 2);
 		$var = uc($var);
-		$self->logit("read_config:3: $var $val\n", 2);
+		$self->logit("read_config:3: $var $val\n", 3);
 		
                 if ($var eq 'IMPORT')
 		{
