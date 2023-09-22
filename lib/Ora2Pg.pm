@@ -10612,9 +10612,17 @@ sub _create_indexes
 			{
 				my @tmp_col = split(/\s*,\s*/, $indexes{$idx}->[$i]);
 				for (my $j = 0; $j <= $#tmp_col; $j++) {
+					$tmp_col[$j] =~ s/^\s+//;
+					$tmp_col[$j] =~ s/\s+$//;
 					if ( $tmp_col[$j] =~ /[\s\-\+\/\*]/ && $tmp_col[$j] !~ /^[^\.\s]+\s+(ASC|DESC)$/i
+							&& $tmp_col[$j] !~ /\s+(ASC|DESC)$/i
 				       			&& $tmp_col[$j] !~ /\s+collate\s+/i ) {
 						$tmp_col[$j] = '(' . $tmp_col[$j] . ')';
+						$self->logit("_create_indexes:".__LINE__.": added () $tmp_col[$j]\n",2);
+					} 
+					if ( $tmp_col[$j] =~ /(CASE\s+.*END)/i) {
+						$tmp_col[$j]  =~ s/(CASE\s+.*END)/(\1)/i;
+						$self->logit("_create_indexes:".__LINE__.": added () $tmp_col[$j]\n",2);
 					}
 				}
 				$indexes{$idx}->[$i] = join(', ', @tmp_col);
