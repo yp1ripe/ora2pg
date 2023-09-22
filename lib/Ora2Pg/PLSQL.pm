@@ -898,13 +898,13 @@ sub plsql_to_plpgsql
 	{
 		if (!$class->{preserve_case})
 		{
-			$str =~ s/\b(\w+)\.(\w+)\.nextval/nextval('\L$2\E')/isg;
-			$str =~ s/\b(\w+)\.(\w+)\.currval/currval('\L$2\E')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.nextval/nextval('\L$2\E')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.currval/currval('\L$2\E')/isg;
 		}
 		else
 		{
-			$str =~ s/\b(\w+)\.(\w+)\.nextval/nextval('"$2"')/isg;
-			$str =~ s/\b(\w+)\.(\w+)\.currval/currval('"$2"')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.nextval/nextval('"$2"')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.currval/currval('"$2"')/isg;
 		}
 	}
 	else
@@ -912,24 +912,24 @@ sub plsql_to_plpgsql
 		my $sch = $class->{pg_schema} || $class->{schema};
 		if (!$class->{preserve_case})
 		{
-			$str =~ s/\b(\w+)\.(\w+)\.nextval/nextval('\L$sch.$2\E')/isg;
-			$str =~ s/\b(\w+)\.(\w+)\.currval/currval('\L$sch.$2\E')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.nextval/nextval('\L$sch.$2\E')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.currval/currval('\L$sch.$2\E')/isg;
 		}
 		else
 		{
-			$str =~ s/\b(\w+)\.(\w+)\.nextval/nextval('"$sch"."$2"')/isg;
-			$str =~ s/\b(\w+)\.(\w+)\.currval/currval('"$sch"."$2"')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.nextval/nextval('"$sch"."$2"')/isg;
+			$str =~ s/\b(\w+)\.([\$[:word:]]+)\.currval/currval('"$sch"."$2"')/isg;
 		}
 	}
 	if (!$class->{preserve_case})
 	{
-		$str =~ s/\b(\w+)\.nextval/nextval('\L$1\E')/isg;
-		$str =~ s/\b(\w+)\.currval/currval('\L$1\E')/isg;
+		$str =~ s/\b([\$[:word:]]+)\.nextval/nextval('\L$1\E')/isg;
+		$str =~ s/\b([\$[:word:]]+)\.currval/currval('\L$1\E')/isg;
 	}
 	else
 	{
-		$str =~ s/\b(\w+)\.nextval/nextval('"$1"')/isg;
-		$str =~ s/\b(\w+)\.currval/currval('"$1"')/isg;
+		$str =~ s/\b([\$[:word:]]+)\.nextval/nextval('"$1"')/isg;
+		$str =~ s/\b([\$[:word:]]+)\.currval/currval('"$1"')/isg;
 	}
 
 	# Oracle MINUS can be replaced by EXCEPT as is
