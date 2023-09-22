@@ -3710,18 +3710,21 @@ sub read_view_from_file
 		my $v_alias = $2;
 		my $v_def = $3;
 		$v_name =~ s/"//g;
-		$tid++;
-	        $self->{views}{$v_name}{text} = $v_def;
-	        $self->{views}{$v_name}{iter} = $tid;
-		# Remove constraint
-		while ($v_alias =~ s/(,[^,\(]+\(.*)$//) {};
-		my @aliases = split(/\s*,\s*/, $v_alias);
-		foreach (@aliases)
+		if(!$self->_need_check_limited_obj('VIEW') || defined($self->_limited_obj_find_int_id('VIEW',"\U$v_name\E")))
 		{
-			s/^\s+//;
-			s/\s+$//;
-			my @tmp = split(/\s+/);
-			push(@{$self->{views}{$v_name}{alias}}, \@tmp);
+			$tid++;
+			$self->{views}{$v_name}{text} = $v_def;
+			$self->{views}{$v_name}{iter} = $tid;
+			# Remove constraint
+			while ($v_alias =~ s/(,[^,\(]+\(.*)$//) {};
+			my @aliases = split(/\s*,\s*/, $v_alias);
+			foreach (@aliases)
+			{
+				s/^\s+//;
+				s/\s+$//;
+				my @tmp = split(/\s+/);
+				push(@{$self->{views}{$v_name}{alias}}, \@tmp);
+			}
 		}
 	}
 	# Standard views
@@ -3730,8 +3733,12 @@ sub read_view_from_file
 		my $v_name = $1;
 		my $v_def = $2;
 		$v_name =~ s/"//g;
-		$tid++;
-	        $self->{views}{$v_name}{text} = $v_def;
+		if(!$self->_need_check_limited_obj('VIEW') || defined($self->_limited_obj_find_int_id('VIEW',"\U$v_name\E")))
+		{
+			$tid++;
+			$self->{views}{$v_name}{text} = $v_def;
+			$self->{views}{$v_name}{iter} = $tid;
+		}
 	}
 
 	# Extract comments
