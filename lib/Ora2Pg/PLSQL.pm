@@ -3703,11 +3703,13 @@ sub replace_outer_join
 		$str =~ s/(\s+)WHERE\s+(ORDER|GROUP)\s+BY/$1$2 BY/is;
 		$str =~ s/\s+WHERE(\s+)/\nWHERE$1/igs;
 
+		my @skip = ();
 		my %associated_clause = ();
 		foreach my $t (sort { $final_from_clause{$a}{position} <=> $final_from_clause{$b}{position} } keys %final_from_clause)
 		{
 			foreach my $j (sort { $final_from_clause{$t}{clause}{$a}{position} <=> $final_from_clause{$t}{clause}{$b}{position} } keys %{$final_from_clause{$t}{clause}})
 			{
+				next if ( grep { $t eq $_ ;} @skip );
 				next if ($#{$final_from_clause{$t}{clause}{$j}{predicat}} < 0);
 
 				if (exists $final_from_clause{$t}{clause}{$j}{$type} && $j !~ /\%SUBQUERY\d+\%/i && $from_clause !~ /\b\Q$final_from_clause{$t}{clause}{$j}{$type}\E\b/)
@@ -3718,8 +3720,25 @@ sub replace_outer_join
 				my ($l,$r) = split(/;/, $t);
 				my $tbl = $j;
 				$tbl =~ s/\s*\%ORA2PG_COMMENT\d+\%\s*//isg;
-				$from_clause .= "\n\U$type\E OUTER JOIN $tbl ON (" .  join(' AND ', @{$final_from_clause{$t}{clause}{$j}{predicat}}) . ")";
-				push(@{$final_outer_clauses{$l}{join}},  "\U$type\E OUTER JOIN $tbl ON (" .  join(' AND ', @{$final_from_clause{$t}{clause}{$j}{predicat}}, @{$other_join_clause{$r}}) . ")");
+
+				my @right_side_other_joins = grep { /^([^;])+;$r$/ && !/^$l;/ ; } keys %final_from_clause;
+				my @rest = ();
+
+				if( scalar(@right_side_other_joins)>0 )
+				{
+					my $rest = '';
+					foreach my $z (@right_side_other_joins )
+					{
+						push @rest,@{$final_from_clause{$z}{clause}{$j}{predicat}};
+						push @skip, $z unless grep {$_ eq $z} @skip;
+						$rest = join( ' AND ', @rest );
+					}
+					$from_clause .= "\n\U$type\E OUTER JOIN $tbl ON (" .  join(' AND ', @{$final_from_clause{$t}{clause}{$j}{predicat}}, $rest) . ")";
+				} else
+				{
+					$from_clause .= "\n\U$type\E OUTER JOIN $tbl ON (" .  join(' AND ', @{$final_from_clause{$t}{clause}{$j}{predicat}}) . ")";
+				}
+				push(@{$final_outer_clauses{$l}{join}},  "\U$type\E OUTER JOIN $tbl ON (" .  join(' AND ', @{$final_from_clause{$t}{clause}{$j}{predicat}},@rest, @{$other_join_clause{$r}}) . ")");
 				push(@{$final_outer_clauses{$l}{position}},  $final_from_clause{$t}{clause}{$j}{position});
 				push(@{$associated_clause{$l}}, $r);
 			}
