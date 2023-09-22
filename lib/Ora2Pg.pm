@@ -3811,6 +3811,7 @@ sub read_trigger_from_file
 		}
 
 		next if (!$t_name || ! $tb_name);
+		$tb_name = "\U$tb_name\E";
 
 		# Remove referencing clause, not supported by PostgreSQL < 10
 		if ($self->{pg_version} < 10) {
@@ -3848,7 +3849,18 @@ sub read_trigger_from_file
 		if ($t_when_cond) {
 			$when_event = "$t_name\n$t_pos $t_event ON $tb_name\n$t_type";
 		}
-		push(@{$self->{triggers}}, [($t_name, $t_pos, $t_event, $tb_name, $trigger, $t_when_cond, $when_event, $t_type)]);
+		$self->logit("read_trigger_from_file:".__LINE__ .":".(scalar(@{$self->{limited}{TABLE}}) == 0 ? '0' : '!0') ."\n",2);
+		$self->logit("read_trigger_from_file:".__LINE__ .":".defined($self->_limited_obj_find_int_id( 'TABLE', $tb_name)) ."\n",2);
+		if( 	!$self->_need_check_limited_obj('TABLE')  ||
+			defined($self->_limited_obj_find_int_id( 'TABLE', $tb_name))  )
+		{
+			$self->logit("read_trigger_from_file:".__LINE__ .":".scalar(@{$self->{limited}{TRIGGER}})."\n",2);
+			if(	!$self->_need_check_limited_obj('TRIGGER')  ||
+				defined($self->_limited_obj_find_int_id( 'TRIGGER', "\U$t_name\E")) )
+			{
+				push(@{$self->{triggers}}, [($t_name, $t_pos, $t_event, $tb_name, $trigger, $t_when_cond, $when_event, $t_type)]);
+			}
+		}
 	}
 }
 
