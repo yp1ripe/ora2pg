@@ -892,6 +892,7 @@ sub _init
 
 	# Log file handle
 	$self->{fhlog} = undef;
+	$self->{logfile} = $options{logfile} if ($options{logfile});
 	if ($self->{logfile})
 	{
 		$self->{fhlog} = new IO::File;
