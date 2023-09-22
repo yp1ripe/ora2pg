@@ -10619,7 +10619,7 @@ sub _create_indexes
 				       			&& $tmp_col[$j] !~ /\s+collate\s+/i ) {
 						$tmp_col[$j] = '(' . $tmp_col[$j] . ')';
 						$self->logit("_create_indexes:".__LINE__.": added () $tmp_col[$j]\n",2);
-					} 
+					}
 					if ( $tmp_col[$j] =~ /(CASE\s+.*END)/i) {
 						$tmp_col[$j]  =~ s/(CASE\s+.*END)/(\1)/i;
 						$self->logit("_create_indexes:".__LINE__.": added () $tmp_col[$j]\n",2);
