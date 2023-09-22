@@ -3016,47 +3016,82 @@ sub _get_dml_from_file
 	return $content;
 }
 
+sub _need_check_limited_obj ()
+{
+
+	my ( $self, $obj_type )  = @_;
+
+	$self->logit("_need_check_limited_obj: unsupported object type $obj_type\n",0,1)
+		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER));
+
+	return (scalar(@{$self->{limited}{$obj_type}})>0 || scalar(@{$self->{excluded}{$obj_type}})>0);
+}
+
+sub _has_meta_chars()
+{
+	my ( $self, $expr )  = @_;
+
+	my $has_metachars = 0;
+	foreach my $meta_chr ( qw/ . + ? { } [ ] \\ * $ ^ ( ) | / )
+	{
+		$self->logit("_has_meta_chars:index( $expr , '$meta_chr')\n",3);
+		if( $has_metachars = (index($expr, $meta_chr) == -1 ? 0 : 1 ) )
+		{
+			$self->logit("_limited_obj_find_int_id:match!\n",3);
+			last;
+		}
+	}
+	return $has_metachars;
+}
+
+
 sub _limited_obj_find_int_id
 {
 	use strict vars;
 	use warnings;
+	CORE::state $oid = 0;
 
 	my ( $self, $obj_type, $obj_name )  = @_;
 	$self->logit("_limited_obj_find_int_id must be called with 2 args\n",0,1)
-		unless ( $obj_type && $obj_name || grep {$obj_type eq $_ } qw(TABLE SEQUENCE));
+		unless ( $obj_type && $obj_name || grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER));
 
-	my $lc_plural = lc( $obj_type . 's' );
+	return 0 if !$self->_need_check_limited_obj($obj_type);
+
 	my $internal_id = undef;
-	for (my $j = 0; $j <= $#{$self->{limited}{$obj_type}}; $j++)
-	{
-		my $expr = $self->{limited}{$obj_type}->[$j];
-		$self->logit("_limited_obj_find_int_id: comparing '$expr'  and $obj_name\n",2);
-		my $has_metachars = 0;
-                foreach my $meta_chr ( qw/ . + ? { } [ ] \\ * $ ^ ( ) | / )
+	no warnings;
+
+	$internal_id = $oid++ if( scalar(@{$self->{limited}{$obj_type}}) == 0  );
+	use warnings;
+        local *match_re_or_eq =  sub {
+		my $branch = shift;
+		for (my $j = 0; $j <= $#{$self->{$branch}{$obj_type}}; $j++)
 		{
-			$self->logit("_limited_obj_find_int_id:index( $expr , '$meta_chr')\n",3);
-			if( $has_metachars = (index($expr, $meta_chr) == -1 ? 0 : 1 ) )
+			my $expr = $self->{$branch}{$obj_type}->[$j];
+			$self->logit("_limited_obj_find_int_id: $branch $obj_type comparing '$expr'  and $obj_name\n",2);
+			my $has_meta = $self->_has_meta_chars($expr);
+			my $re = '';
+			if ( $has_meta )
 			{
-				$self->logit("_limited_obj_find_int_id:match!\n",2);
+				$re = eval { qr/^$expr/i };
+			}
+			if( $has_meta && ref($re) eq 'Regexp' && !$@ )
+			{
+				if( $obj_name =~ /$re/ )
+				{
+					$self->logit("_limited_obj_find_int_id: $branch $obj_type: treating '$expr' as a RE and got a match against $obj_name\n",2);
+					$internal_id = ($branch eq 'limited' ?  $j : undef );
+					last;
+				}
+			} elsif (uc($self->{$branch}{$obj_type}->[$j]) eq uc($obj_name))
+			{
+				$self->logit("_limited_obj_find_int_id: $branch $obj_type: treating '$expr' as a $obj_type name and got a match against $obj_name\n",2);
+				$internal_id = ($branch eq 'limited' ?  $j : undef );
 				last;
 			}
 		}
-		my $re = eval { qr/^$expr/i };
-		if ( $has_metachars && ref($re) eq 'Regexp' && !$@ )
-		{
-			if( $obj_name =~ /$re/ )
-			{
-				$self->logit("_limited_obj_find_int_id: treating '$expr' as a RE '$re' and got a match\n",2);
-				$internal_id = $j;
-				last;
-			}
-		} elsif (uc($self->{limited}{$obj_type}->[$j]) eq uc($obj_name))
-		{
-			$self->logit("_limited_obj_find_int_id: treating '$expr' as a $obj_type name and got a match\n",2);
-			$internal_id = $j;
-			last;
-		}
-	}
+	};
+	match_re_or_eq('limited');
+	match_re_or_eq('excluded');
 	no warnings;
 	$self->logit("_limited_obj_find_int_id: returning ".(defined($internal_id) ? $internal_id : 'undef')." for $obj_type $obj_name\n",2);
 	return $internal_id;
