@@ -6575,8 +6575,8 @@ sub export_procedure
 			%{$self->{function_metadata}{$sch}{'none'}{$fname}{metadata}} = %fct_detail;
 			$self->_restore_comments(\$self->{procedures}{$fct}{text});
 			$self->logit("export_procedure:".__LINE__.": $fct $fname $type\n",2);
-			if(!$self->_need_check_limited_obj($type) ||
-				defined($self->_limited_obj_find_int_id($type,"\U$fname\E")))
+			if($self->_need_check_limited_obj($type) &&
+				!defined($self->_limited_obj_find_int_id($type,"\U$fname\E")))
 			{
 				$self->logit("export_procedure:".__LINE__.": removed limited $fname\n",2);
 				delete $self->{procedures}{$fct};
