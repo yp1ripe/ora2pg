@@ -3605,8 +3605,9 @@ sub read_schema_from_file
 				$self->{tables}{$tb_name}{alter_table}[-1] .= $validate;
 			}
 			# We can just have one primary key constraint
-			if ($tb_def =~ s/CONSTRAINT\s+([^\s]+)\s+PRIMARY KEY//is) {
+			if ($tb_def =~ s/CONSTRAINT\s+([^\s]+)\s+(PRIMARY KEY|UNIQUE)//is) {
 				my $constname = lc($1);
+				my $type= "\U$2\E";
 				$tb_def =~ s/^[^\(]+//;
 				$tb_def =~ s/\);$//s;
 				if ( $tb_def =~ s/USING\s+INDEX\s+TABLESPACE\s+([^\s]+).*//s) {
@@ -3617,7 +3618,7 @@ sub read_schema_from_file
 					}
 					push(@{$self->{tables}{$tb_name}{alter_table}}, "ADD CONSTRAINT $constname PRIMARY KEY " . lc($tb_def));
 				} elsif ($tb_def =~ s/USING\s+INDEX\s+([^\s]+).*//s) {
-					push(@{$self->{tables}{$tb_name}{alter_table}}, "ADD PRIMARY KEY " . lc($tb_def));
+					push(@{$self->{tables}{$tb_name}{alter_table}}, "ADD $type " . lc($tb_def));
 					$self->{tables}{$tb_name}{alter_table}[-1] .= " USING INDEX " . lc($1);
 				} elsif ($tb_def) {
 					push(@{$self->{tables}{$tb_name}{alter_table}}, "ADD CONSTRAINT $constname PRIMARY KEY " . lc($tb_def));
