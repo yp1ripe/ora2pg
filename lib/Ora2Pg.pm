@@ -2944,6 +2944,14 @@ sub _parse_constraint
 		}
 		push(@{$self->{tables}{$tb_name}{foreign_link}{"\U$c_name\E"}{local}}, $cur_col_name);
 		push(@{$self->{tables}{$tb_name}{foreign_link}{"\U$c_name\E"}{remote}{$f_tb_name}}, @col_list);
+		my $on_delete = '';
+		if ($c =~ /ON\s+DELETE/is ) {
+			$self->logit("_parse_contraint:".__LINE__." $c \n",2);
+			if ($c =~ /(ON\s+DELETE\s+(NO\s+ACTION|RESTRICT|CASCADE|SET\s+NULL))/is) {
+				$self->logit("_parse_contraint:".__LINE__." $1 $2 \n",2);
+				$on_delete = $2;
+			}
+		}
 		my $deferrable = '';
 		$deferrable = 'DEFERRABLE' if ($c =~ /DEFERRABLE/);
 		my $deferred = '';
@@ -2951,7 +2959,7 @@ sub _parse_constraint
 		my $novalidate = '';
 		$novalidate = 'NOT VALIDATED' if ($c =~ /NOVALIDATE/);
 		# CONSTRAINT_NAME,R_CONSTRAINT_NAME,SEARCH_CONDITION,DELETE_RULE,$deferrable,DEFERRED,R_OWNER,TABLE_NAME,OWNER,UPDATE_RULE,VALIDATED
-		push(@{$self->{tables}{$tb_name}{foreign_key}}, [ ($c_name,'','','',$deferrable,$deferred,'',$tb_name,'','',$novalidate) ]);
+		push(@{$self->{tables}{$tb_name}{foreign_key}}, [ ($c_name,'','',$on_delete,$deferrable,$deferred,'',$tb_name,'','',$novalidate) ]);
 	}
 }
 
