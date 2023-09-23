@@ -11580,7 +11580,7 @@ sub _create_foreign_keys
 			if ($state->[3]) {
 				$str .= " ON DELETE $state->[3]";
 			} else {
-				$str .= " ON DELETE NO ACTION";
+				1;#$str .= " ON DELETE NO ACTION";
 			}
 			if ($self->{is_mysql}) {
 				$str .= " ON UPDATE $state->[9]" if ($state->[9]);
@@ -11596,7 +11596,9 @@ sub _create_foreign_keys
 				$str .= (($self->{'defer_fkey'} ) ? ' DEFERRABLE' : " $state->[4]") if ($state->[4]);
 				$state->[5] = 'DEFERRED' if ($state->[5] =~ /^Y/);
 				$state->[5] ||= 'IMMEDIATE';
-				$str .= " INITIALLY " . ( ($self->{'defer_fkey'} ) ? 'DEFERRED' : $state->[5] );
+				if( $state->[5] ne 'IMMEDIATE' ) {
+					$str .= " INITIALLY " . ( ($self->{'defer_fkey'} ) ? 'DEFERRED' : $state->[5] );
+				}
 				if ($allow_fk_notvalid && $state->[9] eq 'NOT VALIDATED') {
 					$str .= " NOT VALID";
 				}
