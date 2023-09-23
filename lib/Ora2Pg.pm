@@ -3022,7 +3022,7 @@ sub _need_check_limited_obj ()
 	my ( $self, $obj_type )  = @_;
 
 	$self->logit("_need_check_limited_obj: unsupported object type $obj_type\n",0,1)
-		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER));
+		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER PROCEDURE FUNCTION));
 
 	return (scalar(@{$self->{limited}{$obj_type}})>0 || scalar(@{$self->{excluded}{$obj_type}})>0);
 }
@@ -6544,7 +6544,7 @@ sub export_procedure
 				delete $self->{procedures}{$fct};
 				next;
 			}
-			$self->{procedures}{$fct}{type} = $fct_detail{type};
+			my $type = $self->{procedures}{$fct}{type} = $fct_detail{type};
 			delete $fct_detail{code};
 			delete $fct_detail{before};
 			my $sch = 'unknown';
@@ -6555,6 +6555,14 @@ sub export_procedure
 			$fname =~ s/"//g;
 			%{$self->{function_metadata}{$sch}{'none'}{$fname}{metadata}} = %fct_detail;
 			$self->_restore_comments(\$self->{procedures}{$fct}{text});
+			$self->logit("export_procedure:".__LINE__.": $fct $fname $type\n",2);
+			if(!$self->_need_check_limited_obj($type) ||
+				defined($self->_limited_obj_find_int_id($type,"\U$fname\E")))
+			{
+				$self->logit("export_procedure:".__LINE__.": removed limited $fname\n",2);
+				delete $self->{procedures}{$fct};
+				delete($self->{function_metadata}{$sch}{'none'}{$fname}{metadata} );
+			}
 		}
 	}
 
