@@ -3505,6 +3505,16 @@ sub read_schema_from_file
 				$self->{tables}{$tb_name}{idx_type}{$idx_name}{type} = 'SPATIAL INDEX';
 				$self->{tables}{$tb_name}{idx_type}{$idx_name}{type_name} = 'SPATIAL_INDEX';
 			}
+			if ($idx_def =~ s/INDEXTYPE\s+IS\s+((CTXSYS\.)?(CTXCAT|CONTEXT))//is)
+			{
+				$self->{tables}{$tb_name}{spatial}{$idx_name} = 1;
+				$self->{tables}{$tb_name}{idx_type}{$idx_name}{type} = $1;
+				$self->{tables}{$tb_name}{idx_type}{$idx_name}{type_name} = $1;
+				#$idx_def =~ s/parameters\s*\('.*'\)//;# for now
+				$idx_def =~ s/parameters\s*\(\s*'.*'\s*//;# for now
+				$idx_def =~ s/\)?\s+$//;# for now
+				$self->logit("read_schema_from_fule:".__LINE__." $idx_def \n",2);
+			}
 			if ($idx_def =~ s/layer_gtype=([^\s,]+)//is) {
 				$self->{tables}{$tb_name}{idx_type}{$idx_name}{type_constraint} = uc($1);
 			}
