@@ -3030,7 +3030,7 @@ sub _need_check_limited_obj ()
 	my ( $self, $obj_type )  = @_;
 
 	$self->logit("_need_check_limited_obj: unsupported object type $obj_type\n",0,1)
-		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER PROCEDURE FUNCTION));
+		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER PROCEDURE FUNCTION INDEX));
 
 	return (scalar(@{$self->{limited}{$obj_type}})>0 || scalar(@{$self->{excluded}{$obj_type}})>0);
 }
@@ -3494,6 +3494,8 @@ sub read_schema_from_file
 			$idx_name =~ s/"//gs;
 			$tb_name =~ s/\s+/ /gs;
 			$tb_name = "\U$tb_name\E";
+		        next if ($self->_need_check_limited_obj('INDEX') &&
+				!defined($self->_limited_obj_find_int_id('INDEX',$idx_name)));
 			$idx_def =~ s/\s+/ /gs;
 			$idx_def =~ s/\s*nologging//is;
 			$idx_def =~ s/STORAGE\s*\([^\)]+\)\s*//is;
