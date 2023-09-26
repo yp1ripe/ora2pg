@@ -3905,7 +3905,7 @@ sub read_sequence_from_file
 	my $tid = 0; 
 
 	# Sequences 
-	while ($content =~ s/CREATE\s+SEQUENCE[\s]+([^\s;]+)\s*([^;]+);//i)
+	while ($content =~ s/CREATE\s+SEQUENCE[\s]+([^\s;]+)\s*([^;]+)?;//i)
 	{
 		my $s_name = $1;
 		my $s_def = $2;
@@ -3913,6 +3913,7 @@ sub read_sequence_from_file
 		$s_def =~ s/\s+/ /g;
 		$tid++;
 		my @seq_info = ();
+		$self->logit("read_sequence_from_file:".__LINE__.": $s_name $s_def",2);
 
 		# Field of @seq_info
 		# SEQUENCE_NAME, MIN_VALUE, MAX_VALUE, INCREMENT_BY, LAST_NUMBER, CACHE_SIZE, CYCLE_FLAG, SEQUENCE_OWNER FROM $self->{prefix}_SEQUENCES";
