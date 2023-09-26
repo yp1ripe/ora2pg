@@ -3360,17 +3360,17 @@ sub read_schema_from_file
 							$self->_parse_constraint($tb_name, $c_name, "$pk_name $1 ($cols)");
 
 						}
-						elsif ( ($c =~ s/CONSTRAINT\s([^\s]+)\sCHECK\s*\(([^\)]+)\)//is) || ($c =~ s/CHECK\s*\(([^\)]+)\)//is) )
+						elsif ( ($c =~ s/(CONSTRAINT\s([^\s]+))?\s*CHECK\s*\((.+)\)//is)  )
 						{
 							$c_name =~ s/\./_/gs;
 							my $pk_name = 'o2pc_' . $c_name; 
-							my $chk_search = $1;
-							if ($2)
+							my $chk_search = $3;
+							if ($1)
 							{
-								$pk_name = $1;
-								$chk_search = $2;
+								$pk_name = $2;
 							}
 							$chk_search .= $c if ($c eq ')');
+							$self->logit("read_schema_from_file:".__LINE__." $pk_name $chk_search\n",2);
 							$self->_parse_constraint($tb_name, $c_name, "$pk_name CHECK ($chk_search)");
 						}
 						elsif ($c =~ s/REFERENCES\s+([^\(\s]+)\s*\(([^\)]+)\)//is)
