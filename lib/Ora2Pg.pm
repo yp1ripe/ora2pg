@@ -11183,7 +11183,7 @@ sub _unique_needs_nulls_not_distinct
 		next unless defined($colinfo);# an expression in FB index, for example, so inconclusive and let's skip it
 		my $tmpval =  $self->{tables}{$table}{column_info}{$realcolname}[3];
 		$self->logit("_unique_needs_nulls_not_distinct: $realcolname tmpval $tmpval\n",2);
-		my $is_null =  ( $tmpval eq 'Y' || $tmpval == 1 ) ? 1 : 0 ;
+		my $is_null =  ( $tmpval =~ /[YN]/ && $tmpval eq 'Y' || $tmpval =~ /[01]/ && $tmpval == 1 ) ? 1 : 0 ;
 		$any_null_cols ||= $is_null;
 		$any_notnull_cols ||= !$is_null;
 		$self->logit("_unique_needs_nulls_not_distinct: $realcolname $is_null\n",2);
