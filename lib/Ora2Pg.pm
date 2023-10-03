@@ -3030,7 +3030,7 @@ sub _need_check_limited_obj ()
 	my ( $self, $obj_type )  = @_;
 
 	$self->logit("_need_check_limited_obj: unsupported object type $obj_type\n",0,1)
-		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER PROCEDURE FUNCTION INDEX));
+		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER PROCEDURE FUNCTION INDEX TYPE));
 
 	return (scalar(@{$self->{limited}{$obj_type}})>0 || scalar(@{$self->{excluded}{$obj_type}})>0);
 }
@@ -7085,7 +7085,10 @@ sub export_type
 			$l =~ s/^CREATE\s+(?:OR REPLACE)?\s*(?:NONEDITIONABLE|EDITIONABLE)?\s*//is;
 			$l .= ";\n";
 			if ($l =~ /^(SUBTYPE|TYPE)\s+([^\s\(]+)/is) {
-				push(@{$self->{types}}, { ('name' => $2, 'code' => $l, 'comment' => $cmt, 'pos' => $i) });
+				if( !$self->_need_check_limited_obj('TYPE')  ||
+					defined($self->_limited_obj_find_int_id( 'TYPE', "\U$2\E")) ) {
+						push(@{$self->{types}}, { ('name' => $2, 'code' => $l, 'comment' => $cmt, 'pos' => $i) });
+				}
 			}
 			$i++;
 		}
