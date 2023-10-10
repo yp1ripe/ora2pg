@@ -3659,7 +3659,7 @@ sub read_schema_from_file
 	$self->read_comment_from_file();
 	if( $self->_need_check_limited_obj('TABLE') ) {
 		foreach my $tb_name ( keys $self->{tables} ) {
-			unless ( defined ( $self->{tables}{$tb_name}{internal_id} ) ) {
+			unless ( defined( $self->{tables}{$tb_name}{internal_id} ) ) {
 				$self->logit("read_schema_from_file: deleted unmatched $tb_name\n",2);
 				delete $self->{tables}{$tb_name};
 			}
