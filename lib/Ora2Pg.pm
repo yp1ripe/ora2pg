@@ -3577,7 +3577,7 @@ sub read_schema_from_file
 				$fcti++;
 			};
 			($tb_def, $tb_param) = split(/\s*\)\s*/, $tb_def);
-                        $self->_parse_table_body($tb_name, $tb_def);
+			$self->_parse_table_body($tb_name, $tb_def);
 			# Oracle allow multiple constraints declaration inside a single ALTER TABLE
 =pod
 			while ($tb_def =~ s/CONSTRAINT\s+([^\s]+)\s+CHECK\s*(\(.*?\))\s+(ENABLE|DISABLE|VALIDATE|NOVALIDATE|DEFERRABLE|INITIALLY|DEFERRED|USING\s+INDEX|\s+)+([^,]*)//is)
