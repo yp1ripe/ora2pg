@@ -3122,7 +3122,7 @@ sub _parse_table_body
 	$tbn =~ s/\./_/gs;
 	foreach my $c (@column_defs)
 	{
-		$self->logit("read_schema_from_file:coldef loop $c $pos\n",2);
+		$self->logit("_parse_table_body:coldef loop $c $pos\n",2);
 		next if (!$c);
 
 		# Replace temporary substitution
@@ -3147,7 +3147,7 @@ sub _parse_table_body
 		while ($c =~ s/("[^"]+")/\%\%COLNAME$oid\%\%/s)
 		{
 			$col_name{$oid} = $1;
-			$self->logit("read_schema_from_file:coldef loop $c $oid\n",2);
+			$self->logit("_pars_table_body: loop $c $oid\n",2);
 			$oid++;
 		}
 		if ($c =~ s/^\s*([^\s]+)\s*//s)
@@ -3202,9 +3202,9 @@ sub _parse_table_body
 				{
 					$virt_col = 'YES';
 					$c_default = $2;
-					$self->logit("read_schema_from_file:virt column $c-$c_default-$2\n",2);
+					$self->logit("_parse_table_body:virt column $c-$c_default-$2\n",2);
 					$c_default =~ s/\s+VIRTUAL//is;
-					$self->logit("read_schema_from_file:virt column $c-$c_default-$2\n",2);
+					$self->logit("_parse_table_body:virt column $c-$c_default-$2\n",2);
 				}
 				my $c_type = '';
 				if ($c =~ s/^\s*ENUM\s*(\([^\(\)]+\))\s*//is)
@@ -3273,7 +3273,7 @@ sub _parse_table_body
 						$pk_name = $2;
 					}
 					$chk_search .= $c if ($c eq ')');
-					$self->logit("read_schema_from_file:".__LINE__." $pk_name $chk_search\n",2);
+					$self->logit("_parse_table_body:".__LINE__." $pk_name $chk_search\n",2);
 					$self->_parse_constraint($tb_name, $c_name, "$pk_name CHECK ($chk_search)");
 				}
 				elsif ($c =~ s/REFERENCES\s+([^\(\s]+)\s*\(([^\)]+)\)//is)
