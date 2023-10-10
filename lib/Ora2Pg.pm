@@ -3582,6 +3582,11 @@ sub read_schema_from_file
 			($tb_def, $tb_param) = split(/\s*\)\s*/, $tb_def);
 			$self->_parse_table_body($tb_name, $tb_def);
 			# Oracle allow multiple constraints declaration inside a single ALTER TABLE
+			if( $self->_need_check_limited_obj('TABLE') )
+			{
+				$self->logit("read_schema_from_file: limited tables\n",2);
+				$self->{tables}{$tb_name}{internal_id} = $self->_limited_obj_find_int_id( 'TABLE', $tb_name );
+			}
 =pod
 			while ($tb_def =~ s/CONSTRAINT\s+([^\s]+)\s+CHECK\s*(\(.*?\))\s+(ENABLE|DISABLE|VALIDATE|NOVALIDATE|DEFERRABLE|INITIALLY|DEFERRED|USING\s+INDEX|\s+)+([^,]*)//is)
 			{
