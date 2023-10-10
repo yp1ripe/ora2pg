@@ -8736,7 +8736,7 @@ sub export_table
 				$sql_output .= $self->_get_check_constraint($table, $self->{tables}{$table}{check_constraint},$self->{tables}{$table}{field_name}, @skip_column_check);
 			}
 			$sql_output =~ s/,$//;
-			$sql_output .= ')' 
+			$sql_output .= ')'
 				unless ( exists $self->{tables}{$table}{use_alter} && $self->{tables}{$table}{use_alter} == 1  );
 
 			if (exists $self->{tables}{$table}{table_info}{on_commit})
