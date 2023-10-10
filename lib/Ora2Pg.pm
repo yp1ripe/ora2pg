@@ -1676,6 +1676,7 @@ sub _init
 	$self->{dont_change_check_cons_names} ||= 0;
 	$self->{dont_change_trigger_names} ||= 0;
 	$self->{default_string_agg_type_conv} ||= "::text";
+	$self->{trigger_func_prefix} ||= "trigger_fct_";
 	$self->{skip_set_nn} ||= 0;
 	$self->{align_column_types} ||= 0;
 	$self->{security} = ();
@@ -5914,7 +5915,7 @@ sub export_trigger
 						. " ON " . $self->quote_object_name($tbname) . " CASCADE;\n";
 			my $security = '';
 			my $revoke = '';
-			my $trig_fctname = $self->quote_object_name("trigger_fct_\L$trig->[0]\E");
+			my $trig_fctname = $self->quote_object_name("$self->{trigger_func_prefix}\L$trig->[0]\E");
 			if ($self->{security}{"\U$trig->[0]\E"}{security} eq 'DEFINER')
 			{
 				$security = " SECURITY DEFINER";
