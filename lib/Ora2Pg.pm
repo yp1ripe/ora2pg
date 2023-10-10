@@ -1674,6 +1674,7 @@ sub _init
 	$self->{fkeys_in_create} ||= 0;
 	$self->{checks_in_create} ||= 0;
 	$self->{dont_change_check_cons_names} ||= 0;
+	$self->{dont_change_trigger_names} ||= 0;
 	$self->{default_string_agg_type_conv} ||= "::text";
 	$self->{skip_set_nn} ||= 0;
 	$self->{align_column_types} ||= 0;
@@ -3896,7 +3897,11 @@ sub read_trigger_from_file
 		$trigger =~ s/\bEND\s+[^\s]+\s+$/END/is;
 		my $when_event = '';
 		if ($t_when_cond) {
-			$when_event = "$t_name\n$t_pos $t_event ON $tb_name\n$t_type";
+			if($self->{dont_change_trigger_names}) {
+				$when_event = "\n$t_pos $t_event ON $tb_name\n$t_type";
+			} else {
+				$when_event = "$t_name\n$t_pos $t_event ON $tb_name\n$t_type";
+			}
 		}
 		$self->logit("read_trigger_from_file:".__LINE__ .":".(scalar(@{$self->{limited}{TABLE}}) == 0 ? '0' : '!0') ."\n",2);
 		$self->logit("read_trigger_from_file:".__LINE__ .":".defined($self->_limited_obj_find_int_id( 'TABLE', $tb_name)) ."\n",2);
