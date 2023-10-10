@@ -3573,6 +3573,9 @@ sub read_schema_from_file
 			my $tb_name = $1;
 			$tb_name =~ s/"//g;
 			$tb_name= "\U$tb_name\E";
+			if( ! exists( $self->{tables}{$tb_name} ) ) {
+				$self->{tables}{$tb_name}{use_alter} = 1;
+			}
 			my $tb_def = $2;
 			while ($tb_def =~ s/(\([^\(\)]*\))/\%\%FCT$fcti\%\%/is)
 			{
@@ -3664,11 +3667,17 @@ sub read_schema_from_file
 		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+drop\s+primary\s+key([^;]*);//is)
 		{
 			my $tb_name = "\U$1\E";
+			if( ! exists( $self->{tables}{$tb_name} ) ) {
+				$self->{tables}{$tb_name}{use_alter} = 1;
+			}
 			foreach my $k (keys %{$self->{tables}{$tb_name}{unique_key}} ) {
 				if( $self->{tables}{$tb_name}{unique_key}{$k}{type} eq 'P' ) {
 					delete $self->{tables}{$tb_name}{unique_key}{$k};
 					last;
 			        }
+			}
+			if( exists $self->{tables}{$table}{use_alter} && $self->{tables}{$table}{use_alter} == 1  ) {
+				push(@{$self->{tables}{$tb_name}{alter_table}}, "drop PRIMARY KEY ");
 			}
 
 		}
@@ -3676,7 +3685,10 @@ sub read_schema_from_file
 		{
 			my $tb_name = "\U$1\E";
 			my $cons = $2;
-                        $self->logit("read_schema_from_file: drop constraint $tb_name $cons\n",2);
+			$self->logit("read_schema_from_file: drop constraint $tb_name $cons\n",2);
+			if( ! exists( $self->{tables}{$tb_name} ) ) {
+				$self->{tables}{$tb_name}{use_alter} = 1;
+			}
 
 			foreach my $k (keys %{$self->{tables}{$tb_name}{unique_key}} ) {
 				if( $k eq  $cons ) {
@@ -3693,6 +3705,12 @@ sub read_schema_from_file
 					delete $self->{tables}{$tb_name}{check_constraint}{$k};
 					last;
 			        }
+			}
+			if( exists $self->{tables}{$tb_name}{use_alter} && $self->{tables}{$tb_name}{use_alter} == 1  ) {
+				if(!exists $self->{tables}{$tb_name}{alter_table}) {
+					$self->{tables}{$tb_name}{alter_table} = [];
+				}
+				push(@{$self->{tables}{$tb_name}{alter_table}}, "drop constraint $cons");
 			}
 			$self->logit("read_schema_from_file: drop constraint ".Data::Dumper::Dumper($self->{tables}{$tb_name}{alter_table}),2);
 		}
@@ -8306,7 +8324,16 @@ sub export_table
 		my $enum_str = '';
 		my @skip_column_check = ();
 		$sql_output .= "#ORA2PGENUM#\n"; # used to insert any enum data type before the table that will use it
-		if (exists $self->{tables}{$table}{column_info})
+		if (exists $self->{tables}{$table}{alter_table} && !$self->{disable_unlogged}
+		&& (exists $self->{tables}{$table}{use_alter} &&  $self->{tables}{$table}{use_alter} ==1) )
+		{
+			$obj_type =~ s/UNLOGGED //;
+			foreach (@{$self->{tables}{$table}{alter_table}}) {
+				$sql_output .= "\nALTER $obj_type $tbname $_;\n";
+			}
+		}
+		if (exists $self->{tables}{$table}{column_info} || exists $self->{tables}{$table}{unique_key} ||
+			exists  $self->{tables}{$table}{foreign_key} || $self->{tables}{$table}{check_constraint} )
 		{
 			my $schem = '';
 
@@ -8315,7 +8342,11 @@ sub export_table
 				 $sql_output .= "\nCREATE FOREIGN TABLE $self->{fdw_import_schema}.$tbname (\n";
 			} else {
 				$sql_output .= "\nDROP${foreign} TABLE $self->{pg_supports_ifexists} $tbname;" if ($self->{drop_if_exists});
-				$sql_output .= "\nCREATE$foreign $obj_type $tbname (\n";
+				if( exists $self->{tables}{$table}{use_alter} && $self->{tables}{$table}{use_alter} == 1  ) {
+					$sql_output .= "\nALTER TABLE $tbname\n";
+				} else {
+					$sql_output .= "\nCREATE$foreign $obj_type $tbname (\n";
+				}
 			}
 
 			# get column name list.
@@ -8498,7 +8529,11 @@ sub export_table
 					$pretty_tabs_num ||= 1;
 				}
 				my $tabs = "\t" x $pretty_tabs_num;
-				$sql_output .= "\t${fname}${tabs}${type}";
+				if( exists $self->{tables}{$table}{use_alter} && $self->{tables}{$table}{use_alter} == 1  ) {
+					$sql_output .= "\tADD\t${fname}${tabs}${type}";
+				} else {
+					$sql_output .= "\t${fname}${tabs}${type}";
+				}
 
 				if ($foreign && $self->is_primary_key_column($table, $f->[0])) {
 					 $sql_output .= " OPTIONS (key 'true')";
@@ -8701,7 +8736,8 @@ sub export_table
 				$sql_output .= $self->_get_check_constraint($table, $self->{tables}{$table}{check_constraint},$self->{tables}{$table}{field_name}, @skip_column_check);
 			}
 			$sql_output =~ s/,$//;
-			$sql_output .= ')';
+			$sql_output .= ')' 
+				unless ( exists $self->{tables}{$table}{use_alter} && $self->{tables}{$table}{use_alter} == 1  );
 
 			if (exists $self->{tables}{$table}{table_info}{on_commit})
 			{
@@ -8890,7 +8926,8 @@ sub export_table
 			}
 		}
 
-		if (exists $self->{tables}{$table}{alter_table} && !$self->{disable_unlogged} )
+		if (exists $self->{tables}{$table}{alter_table} && !$self->{disable_unlogged}
+		&& !(exists $self->{tables}{$table}{use_alter} &&  $self->{tables}{$table}{use_alter} ==1) )
 		{
 			$obj_type =~ s/UNLOGGED //;
 			foreach (@{$self->{tables}{$table}{alter_table}}) {
@@ -11312,14 +11349,18 @@ sub _get_primary_keys
 		map { $_ = $self->quote_object_name($_) } @conscols;
 
 		my $columnlist = join(',', @conscols);
+		my $add = '';
+		if( exists $self->{tables}{$table}{use_alter} && $self->{tables}{$table}{use_alter} == 1  ) {
+			$add = "ADD\t";
+		}
 		if ($columnlist)
 		{
 			if ($self->{pkey_in_create} || $self->{ukeys_in_create})
 			{
 				if (!$self->{keep_pkey_names} || ($constgen eq 'GENERATED NAME')) {
-					$out .= "\t$constypename ($columnlist)";
+					$out .= "\t$add$constypename ($columnlist)";
 				} else {
-					$out .= "\tCONSTRAINT " .  $self->quote_object_name($consname) . " $constypename ($columnlist)";
+					$out .= "\t${add}CONSTRAINT " .  $self->quote_object_name($consname) . " $constypename ($columnlist)";
 				}
 				if ($self->{use_tablespace} && $self->{tables}{$table}{idx_tbsp}{$index_name} && !grep(/^$self->{tables}{$table}{idx_tbsp}{$index_name}$/i, @{$self->{default_tablespaces}})) {
 					$out .= " USING INDEX TABLESPACE " .  $self->quote_object_name($self->{tables}{$table}{idx_tbsp}{$index_name});
@@ -11515,6 +11556,10 @@ sub _get_check_constraint
 
 	my $out = '';
 	# Set the check constraint definition 
+	my $add = '';
+	if( exists $self->{tables}{$tbsaved}{use_alter} && $self->{tables}{$tbsaved}{use_alter} == 1  ) {
+		$add = "ADD\t";
+	}
 	foreach my $k (sort keys %{$check_constraint->{constraint}})
 	{
 		my $chkconstraint = $check_constraint->{constraint}->{$k}{condition};
@@ -11558,7 +11603,7 @@ sub _get_check_constraint
 			{
 				$chkconstraint = Ora2Pg::PLSQL::convert_plsql_code($self, $chkconstraint);
 				$chkconstraint =~ s/,$//;
-				$out .= "\tCONSTRAINT $k CHECK ($chkconstraint)$validate,\n";
+				$out .= "\t${add}CONSTRAINT $k CHECK ($chkconstraint)$validate,\n";
 			}
 		}
 	}
@@ -11643,11 +11688,15 @@ sub _create_foreign_keys
 				$rfkeys[$i] = $self->quote_object_name(split(/\s*,\s*/, $rfkeys[$i]));
 			}
 			$fkname = $self->quote_object_name($fkname);
+			my $add = '';
+			if( exists $self->{tables}{$tbsaved}{use_alter} && $self->{tables}{$tbsaved}{use_alter} == 1  ) {
+				$add = "ADD\t";
+			}
 			unless( $self->{fkeys_in_create}) {
 				$str .= "ALTER TABLE $table DROP CONSTRAINT $self->{pg_supports_ifexists} $fkname;\n" if ($self->{drop_if_exists});
 				$str .= "ALTER TABLE $table ADD CONSTRAINT $fkname FOREIGN KEY (" . join(',', @lfkeys) . ") REFERENCES $subsdesttable(" . join(',', @rfkeys) . ")";
 			} else {
-				$str .= "\tCONSTRAINT $fkname FOREIGN KEY (" . join(',', @lfkeys) . ") REFERENCES $subsdesttable(" . join(',', @rfkeys) . ")";
+				$str .= "\t${add}CONSTRAINT $fkname FOREIGN KEY (" . join(',', @lfkeys) . ") REFERENCES $subsdesttable(" . join(',', @rfkeys) . ")";
 			}
 			$str .= " MATCH $state->[2]" if ($state->[2]);
 			if ($state->[3]) {
