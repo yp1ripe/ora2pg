@@ -1673,6 +1673,7 @@ sub _init
 	$self->{unique_nulls_not_distinct} ||= 0;
 	$self->{fkeys_in_create} ||= 0;
 	$self->{checks_in_create} ||= 0;
+	$self->{dont_change_check_cons_names} ||= 0;
 	$self->{skip_set_nn} ||= 0;
 	$self->{align_column_types} ||= 0;
 	$self->{security} = ();
@@ -2917,7 +2918,7 @@ sub _parse_constraint
 	{
 		my $name = $1;
 		my $desc = $2;
-		if ($desc =~ /^([a-z_\$0-9]+)\b/i) {
+		if ($desc =~ /^([a-z_\$0-9]+)\b/i && !$self->{dont_change_check_cons_names} ) {
 			$name .= "_$1";
 		}
 		my %tmp = ($name => $desc);
