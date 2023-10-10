@@ -3661,6 +3661,41 @@ sub read_schema_from_file
 			}
 =cut
 		}
+		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+drop\s+primary\s+key([^;]*);//is)
+		{
+			my $tb_name = "\U$1\E";
+			foreach my $k (keys %{$self->{tables}{$tb_name}{unique_key}} ) {
+				if( $self->{tables}{$tb_name}{unique_key}{$k}{type} eq 'P' ) {
+					delete $self->{tables}{$tb_name}{unique_key}{$k};
+					last;
+			        }
+			}
+
+		}
+		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+drop\s+constraint\s+(\S+)\s*;//is)
+		{
+			my $tb_name = "\U$1\E";
+			my $cons = $2;
+                        $self->logit("read_schema_from_file: drop constraint $tb_name $cons\n",2);
+
+			foreach my $k (keys %{$self->{tables}{$tb_name}{unique_key}} ) {
+				if( $k eq  $cons ) {
+					delete $self->{tables}{$tb_name}{unique_key}{$k};
+					last;
+			        }
+			}
+			$self->logit("read_schema_from_file: drop constraint ".Data::Dumper::Dumper($self->{tables}{$tb_name}{foreign_key}),3);
+			$self->{tables}{$tb_name}{foreign_key} = [ grep { $_->[0] ne $cons;} @{ $self->{tables}{$tb_name}{foreign_key} }] ;
+			delete $self->{tables}{$tb_name}{foreign_link}{"\U$cons\E"};
+			$self->logit("read_schema_from_file: drop constraint ".Data::Dumper::Dumper($self->{tables}{$tb_name}{foreign_key}),3);
+			foreach my $k (keys %{$self->{tables}{$tb_name}{check_constraint}} ) {
+				if( $k eq  $cons ) {
+					delete $self->{tables}{$tb_name}{check_constraint}{$k};
+					last;
+			        }
+			}
+			$self->logit("read_schema_from_file: drop constraint ".Data::Dumper::Dumper($self->{tables}{$tb_name}{alter_table}),2);
+		}
 	}
 
 	# Extract comments
