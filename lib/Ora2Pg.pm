@@ -1674,6 +1674,7 @@ sub _init
 	$self->{fkeys_in_create} ||= 0;
 	$self->{checks_in_create} ||= 0;
 	$self->{dont_change_check_cons_names} ||= 0;
+	$self->{default_string_agg_type_conv} ||= "::text";
 	$self->{skip_set_nn} ||= 0;
 	$self->{align_column_types} ||= 0;
 	$self->{security} = ();
