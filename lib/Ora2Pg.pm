@@ -2930,7 +2930,7 @@ sub _parse_constraint
 			$self->{tables}{$tb_name}{check_constraint}{constraint}{$name}{validate} = 'NOT VALIDATED';
 		}
 	}
-	elsif ($c =~ /^([^\s]+)\s+FOREIGN KEY (\([^\)]+\))?\s*REFERENCES ([^\(\s]+)\s*\(([^\)]+)\)/is)
+	elsif ($c =~ /^([^\s]+)\s+FOREIGN\s+KEY\s*(\([^\)]+\))?\s*REFERENCES\s*([^\(\s]+)\s*\(([^\)]+)\)/is)
 	{
 		my $c_name = $1;
 		if ($2) {
