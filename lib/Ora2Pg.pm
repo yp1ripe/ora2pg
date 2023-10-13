@@ -3294,13 +3294,13 @@ sub _parse_table_body
 					$auto_incr = 1;
 				}
 				# At this stage only the DEFAULT part might be on the string
-				if ($c =~ /\bDEFAULT\s+/is)
+				if ($c =~ /\bDEFAULT\b\s*/is)
 				{
-					if ($c =~ s/\bDEFAULT\s+('[^']+')\s*//is) {
+					if ($c =~ s/\bDEFAULT\b\s*('[^']+')\s*//is) {
 						$c_default = $1;
-					} elsif ($c =~ s/\bDEFAULT\s+([^\s]+)\s*$//is) {
+					} elsif ($c =~ s/\bDEFAULT\b\s*([^\s]+)\s*$//is) {
 						$c_default = $1;
-					} elsif ($c =~ s/\bDEFAULT\s+(.*)$//is) {
+					} elsif ($c =~ s/\bDEFAULT\b\s*(.*)$//is) {
 						$c_default = $1;
 					}
 					$c_default =~ s/"//gs;
