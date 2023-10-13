@@ -3201,7 +3201,7 @@ sub _parse_table_body
 					}
 					$self->{identity_info}{$tb_name}{$c_name}{options} =~ s/\s+/ /igs;
 				}
-				elsif ($c =~ s/\b(GENERATED ALWAYS AS|AS)\s+\((.*)\)\s+(VIRTUAL)?\s+(NOT NULL)?//is)
+				elsif ($c =~ s/\b(GENERATED\s+ALWAYS\s+AS|AS)\s+\((.*)\)\s*(VIRTUAL)?\s+(NOT NULL)?//is)
 				{
 					$virt_col = 'YES';
 					$c_default = $2;
