@@ -3505,10 +3505,13 @@ sub read_schema_from_file
 			my $tb_name = $3;
 			my $idx_def = $4;
 			$idx_name =~ s/"//gs;
+			$idx_name = "\U$idx_name\E";
 			$tb_name =~ s/\s+/ /gs;
 			$tb_name = "\U$tb_name\E";
 		        next if ($self->_need_check_limited_obj('INDEX') &&
 				!defined($self->_limited_obj_find_int_id('INDEX',$idx_name)));
+		        next if ($self->_need_check_limited_obj('TABLE') &&
+				!defined($self->_limited_obj_find_int_id('TABLE',$tb_name)));
 			$idx_def =~ s/\s+/ /gs;
 			$idx_def =~ s/\s*nologging//is;
 			$idx_def =~ s/STORAGE\s*\([^\)]+\)\s*//is;
@@ -3560,7 +3563,7 @@ sub read_schema_from_file
 				$self->{tables}{$tb_name}{idx_type}{$idx_name}{type} = 'FUNCTION-BASED';
 			}
 
-			if (!exists $self->{tables}{$tb_name}{table_info}{type} && scalar(@{$self->{limited}{TABLE}}) == 0)
+			if (!$self->_need_check_limited_obj('TABLE') && !exists $self->{tables}{$tb_name}{table_info}{type})
 			{
 				$self->{tables}{$tb_name}{table_info}{type} = 'TABLE';
 				$self->{tables}{$tb_name}{table_info}{num_rows} = 0;
