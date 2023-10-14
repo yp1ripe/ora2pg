@@ -10866,17 +10866,25 @@ sub _create_indexes
 		{
 			for ($i = 0; $i <= $#{$indexes{$idx}}; $i++)
 			{
+				$self->logit("_create_indexes:".__LINE__.": $i $indexes{$idx}->[$i]\n",2);
+				while ($indexes{$idx}->[$i] =~ s/(\([^\(\)]*\))/\%\%FCT$fcti\%\%/is)
+				{
+					$fct_placeholder{$fcti} = $1;
+					$fcti++;
+				};
 				my @tmp_col = split(/\s*,\s*/, $indexes{$idx}->[$i]);
 				for (my $j = 0; $j <= $#tmp_col; $j++) {
 					$tmp_col[$j] =~ s/^\s+//;
 					$tmp_col[$j] =~ s/\s+$//;
+					while ($tmp_col[$j] =~ s/\%\%FCT(\d+)\%\%/$fct_placeholder{$1}/is) {
+						delete $fct_placeholder{$1};
+					}
 					if ( $tmp_col[$j] =~ /[\s\-\+\/\*]/ && $tmp_col[$j] !~ /^[^\.\s]+\s+(ASC|DESC)$/i
 							&& $tmp_col[$j] !~ /\s+(ASC|DESC)$/i
 				       			&& $tmp_col[$j] !~ /\s+collate\s+/i ) {
 						$tmp_col[$j] = '(' . $tmp_col[$j] . ')';
 						$self->logit("_create_indexes:".__LINE__.": added () $tmp_col[$j]\n",2);
-					}
-					if ( $tmp_col[$j] =~ /(CASE\s+.*END)/i) {
+					} elsif ( $tmp_col[$j] =~ /(CASE\s+.*END)/i && $tmp_col[$j] !~ /^\(.*\)$/) {
 						$tmp_col[$j]  =~ s/(CASE\s+.*END)/(\1)/i;
 						$self->logit("_create_indexes:".__LINE__.": added () $tmp_col[$j]\n",2);
 					}
