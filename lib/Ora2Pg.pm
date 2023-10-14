@@ -3712,6 +3712,7 @@ sub read_schema_from_file
 		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+drop\s+primary\s+key([^;]*);//is)
 		{
 			my $tb_name = "\U$1\E";
+			$tb_name =~ s/"//gs;
 			if( ! exists( $self->{tables}{$tb_name} ) ) {
 				$self->{tables}{$tb_name}{use_alter} = 1;
 			}
