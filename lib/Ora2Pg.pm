@@ -3571,6 +3571,24 @@ sub read_schema_from_file
 				$self->{tables}{$tb_name}{internal_id} = $tid;
 			}
 		}
+		elsif ($content =~ s/drop\s+index\s+(\S+)[^;]*;//is)
+		{
+			my $idx_name = $1;
+			$idx_name =~ s/"//gs;
+			$idx_name = "\U$idx_name\E";
+			$self->logit("read_schema_from_file: drop index $idx_name\n",2);
+			if( exists $self->{tables} ) {
+				foreach my $tb_name ( keys $self->{tables} ) {
+					if( exists $self->{tables}{$tb_name}{indexes} ) {
+						foreach my $idx_nm ( keys $self->{tables}{$tb_name}{indexes} ) {
+							if( $idx_nm eq $idx_name )  {
+								delete $self->{tables}{$tb_name}{indexes}{$idx_name};
+							}
+						}
+					}
+				}
+			}
+		}
 		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+ADD\s*\(*\s*([^;]*);//is)
 		{
 			my $tb_name = $1;
