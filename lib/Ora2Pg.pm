@@ -3722,7 +3722,7 @@ sub read_schema_from_file
 					last;
 			        }
 			}
-			if( exists $self->{tables}{$table}{use_alter} && $self->{tables}{$table}{use_alter} == 1  ) {
+			if( exists $self->{tables}{$tb_name}{use_alter} && $self->{tables}{$tb_name}{use_alter} == 1  ) {
 				push(@{$self->{tables}{$tb_name}{alter_table}}, "drop PRIMARY KEY ");
 			}
 
