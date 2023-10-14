@@ -3780,6 +3780,18 @@ sub read_schema_from_file
 			}
 		}
 	}
+	if( exists $self->{tables} ) {
+		foreach my $tb_name ( keys $self->{tables} ) {
+			if( exists $self->{tables}{$tb_name}{column_comments} ) {
+				foreach my $c_name ( keys $self->{tables}{$tb_name}{column_comments} ) {
+					unless( exists $self->{tables}{$tb_name}{column_info}{"\U$c_name\E"} ) {
+						delete $self->{tables}{$tb_name}{column_comments}{$c_name};
+						$self->logit("read_schema_from_file: drop column $tb_name $c_name comments  ".Data::Dumper::Dumper($self->{tables}{$tb_name}),3);
+					}
+				}
+			}
+		}
+	}
 }
 
 sub read_comment_from_file
