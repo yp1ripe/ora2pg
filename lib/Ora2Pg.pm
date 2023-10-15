@@ -3768,16 +3768,18 @@ sub read_schema_from_file
 	$self->logit("read_schema_from_file: before final cleanup\n",2);
 	if( $self->_need_check_limited_obj('TABLE') ) {
 		$self->logit("read_schema_from_file: in final cleanup\n",2);
-		foreach my $tb_name ( keys $self->{tables} ) {
-			$self->logit("read_schema_from_file: limited tables dump for table $tb_name:".
-			Data::Dumper::Dumper($self->{tables}{$tb_name})
-			."\n",3);
-			my $int_id = undef;
-			$int_id =  $self->{tables}{$tb_name}{internal_id} ;
-			$self->logit("read_schema_from_file: final cleanup $tb_name $int_id\n",2);
-			unless ( defined( $int_id ) ) {
-				$self->logit("read_schema_from_file: deleted unmatched $tb_name\n",2);
-				delete $self->{tables}{$tb_name};
+		if( exists $self->{tables} ) {
+			foreach my $tb_name ( keys $self->{tables} ) {
+				$self->logit("read_schema_from_file: limited tables dump for table $tb_name:".
+				Data::Dumper::Dumper($self->{tables}{$tb_name})
+				."\n",3);
+				my $int_id = undef;
+				$int_id =  $self->{tables}{$tb_name}{internal_id} ;
+				$self->logit("read_schema_from_file: final cleanup $tb_name $int_id\n",2);
+				unless ( defined( $int_id ) ) {
+					$self->logit("read_schema_from_file: deleted unmatched $tb_name\n",2);
+					delete $self->{tables}{$tb_name};
+				}
 			}
 		}
 	}
