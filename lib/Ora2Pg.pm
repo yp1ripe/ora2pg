@@ -3501,7 +3501,7 @@ sub read_schema_from_file
 		}
 		elsif ($content =~ s/CREATE\s+(UNIQUE|BITMAP)?\s*INDEX\s+([^\s]+)\s+ON\s+([^\s\(]+)\s*\((.*)\)//is)
 		{
-			my $is_unique = $1;
+			my $is_unique = "\U$1\E";
 			my $idx_name = $2;
 			my $tb_name = $3;
 			my $idx_def = $4;
