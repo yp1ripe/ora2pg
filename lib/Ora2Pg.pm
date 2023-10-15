@@ -8384,7 +8384,7 @@ sub export_table
 
 			my $withoid = _make_WITH($self->{with_oid}, $self->{tables}{$tbname}{table_info});
 			$sql_output .= "\nCREATE $obj_type $tbname $withoid AS $self->{tables}{$table}{table_as};\n";
-			next;
+			$self->{tables}{$table}{use_alter} = 1;
 		}
 		if (exists $self->{tables}{$table}{truncate_table}) {
 			$sql_output .= "\nTRUNCATE TABLE $tbname;\n";
