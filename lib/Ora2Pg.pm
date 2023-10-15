@@ -2946,6 +2946,7 @@ sub _parse_constraint
 			$f_tb_name =~ s/^[^\.]+\.//;
 			map { s/^[^\.]+\.//; } @col_list;
 		}
+		$self->logit("_parse_contraint:".__LINE__." $c_name $1 $2 $3 $4 \n",2);
 		push(@{$self->{tables}{$tb_name}{foreign_link}{"\U$c_name\E"}{local}}, $cur_col_name);
 		push(@{$self->{tables}{$tb_name}{foreign_link}{"\U$c_name\E"}{remote}{$f_tb_name}}, @col_list);
 		my $on_delete = '';
