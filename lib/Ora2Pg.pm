@@ -10002,6 +10002,7 @@ sub _get_sql_statements
 				{
 					my @create_all = ();
 					$self->logit("Restoring indexes of table $table...\n", 1);
+					$self->logit(Data::Dumper::Dumper($self->{tables}{$table}{indexes}) , 3);
 					push(@create_all, $self->_create_indexes($table, 1, %{$self->{tables}{$table}{indexes}}));
 					if ($#create_all >= 0)
 					{
@@ -11151,6 +11152,7 @@ sub _drop_indexes
 
 	my $tbsaved = $table;
 	$table = $self->get_replaced_tbname($table);
+	$self->logit("_drop_indexes:".__LINE__.":".Data::Dumper::Dumper(\%indexes)."\n",3);
 
 	my @out = ();
 	# Set the index definition
@@ -11171,6 +11173,7 @@ sub _drop_indexes
 				$_ = $self->quote_object_name($_);
 				$_ .= $1;
 			} } @{$indexes{$idx}};
+		$self->logit("_drop_indexes:".__LINE__.":".Data::Dumper::Dumper($indexes{$idx})."\n",3);
 
                 my $columns = '';
                 foreach my $s (@{$indexes{$idx}})
@@ -11268,6 +11271,7 @@ sub _drop_indexes
 		}
 	}
 
+	$self->logit("_drop_indexes:".__LINE__.":".Data::Dumper::Dumper(\%indexes)."\n",3);
 	return wantarray ? @out : join("\n", @out);
 }
 

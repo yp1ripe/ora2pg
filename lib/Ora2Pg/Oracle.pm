@@ -962,6 +962,8 @@ AND    IC.TABLE_OWNER = ?
 			if ($row->[13] eq 'DESC') {
 				$row->[1] .= " DESC";
 			}
+			$self->logit("Ora2Pg::Oracle::_get_indexes:".__LINE__."'$row->[1]'\n",3);
+			
 		}
 		else
 		{
@@ -1010,6 +1012,7 @@ AND    IC.TABLE_OWNER = ?
 	my $td = timediff($t1, $t0);
 	$self->logit("Collecting $nidx indexes in $self->{prefix}_INDEXES took: " . timestr($td) . "\n", 1);
 
+	$self->logit("Ora2Pg::Oracle::_get_indexes:".__LINE__. Data::Dumper::Dumper(\%data)."\n",3);
 	return \%unique, \%data, \%idx_type, \%index_tablespace;
 }
 
