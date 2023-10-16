@@ -945,6 +945,9 @@ AND    IC.TABLE_OWNER = ?
 			$sth2->execute($colname,$save_tb,$row->[-5]) or $self->logit("FATAL: " . $self->{dbh}->errstr . "\n", 0, 1);
 			my $nc = $sth2->fetch();
 			$row->[1] = $nc->[0];
+			$self->logit("Ora2Pg::Oracle::_get_indexes:".__LINE__."'$row->[1]'\n",3);
+			# Handle case where indexes name include the schema at create time
+			$row->[1] =~ s/"$self->{schema}"\.//i if ($self->{schema} && $self->{remove_schema_from_fbi}==1);
 			$row->[1] =~ s/"//g;
 			$row->[1] =~ s/'//g if ($row->[1] =~ /^'[^'\s]+'$/);
 			# Single row constraint based on a constant and a function based unique index

@@ -1679,6 +1679,7 @@ sub _init
 	$self->{trigger_func_prefix} ||= "trigger_fct_";
 	$self->{skip_set_nn} ||= 0;
 	$self->{align_column_types} ||= 0;
+	$self->{remove_schema_from_fbi} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
 	$self->{stop_on_error} = 1 if (not defined $self->{stop_on_error});
