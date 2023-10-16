@@ -750,7 +750,7 @@ sub quote_object_name
 			if ($obj_name =~ /[^a-z0-9\_\.\$]/ || ($self->{use_reserved_words} && $self->is_reserved_words($obj_name)) || $obj_name =~ /^\d+/)
 			{
 				# Add double quote to [schema.] object name 
-				if ($obj_name !~ /^[^\.]+\.[^\.]+$/ && $obj_name !~ /^[^\.]+\.[^\.]+\.[^\.]+$/) {
+				if ($obj_name !~ /^[^\.]+\.[^\.]+$/ && $obj_name !~ /^[^\.]+\.[^\.]+\.[^\.]+$/ &&  $obj_name !~ /[-+*\/\s\|]/) {
 					$obj_name = '"' . $obj_name . '"';
 				} elsif ($obj_name =~ /^[^\.]+\.[^\.]+$/) {
 					$obj_name =~ s/^([^\.]+)\.([^\.]+)$/"$1"\."$2"/;
@@ -761,7 +761,7 @@ sub quote_object_name
 			}
 		}
 		# Add double quote to [schema.] object name 
-		elsif ($obj_name !~ /^[^\.]+\.[^\.]+$/ && $obj_name !~ /^[^\.]+\.[^\.]+\.[^\.]+$/) {
+		elsif ($obj_name !~ /^[^\.]+\.[^\.]+$/ && $obj_name !~ /^[^\.]+\.[^\.]+\.[^\.]+$/ && $obj_name !~ /[-+*\/\s\|]/) {
 			$obj_name = "\"$obj_name\"";
 		} elsif ($obj_name =~ /^[^\.]+\.[^\.]+$/) {
 			$obj_name =~ s/^([^\.]+)\.([^\.]+)$/"$1"\."$2"/;
