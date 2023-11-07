@@ -1414,7 +1414,7 @@ sub _init
 		}
 		$self->{blob_to_lo} = 1;
 		$self->{truncate_table} = 0;
-		$self->{drop_fkeys} = 0;
+		$self->{drop_fkey} = 0;
 		$self->{drop_indexes} = 0;
 	}
 
