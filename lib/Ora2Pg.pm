@@ -1667,6 +1667,7 @@ sub _init
 	$self->{pkey_in_create} ||= 0;
 	$self->{ukeys_in_create} ||= 0;
 	$self->{unique_nulls_not_distinct} ||= 0;
+	$self->{fkeys_in_create} ||= 0;
 	$self->{skip_set_nn} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
@@ -8416,6 +8417,11 @@ sub export_table
 			if ($self->{pkey_in_create}) {
 				$sql_output .= $self->_get_primary_keys($table, $self->{tables}{$table}{unique_key});
 			}
+			if ($self->{fkeys_in_create}) {
+				foreach my $fk ($self->_create_foreign_keys($table)) {
+					$sql_output .= $fk;
+				}
+			}
 			$sql_output =~ s/,$//;
 			$sql_output .= ')';
 
@@ -8747,7 +8753,7 @@ RETURNS text AS
 		next if ($#{$self->{tables}{$table}{foreign_key}} < 0);
 		$self->logit("Dumping RI $table...\n", 1);
 		# Add constraint definition
-		if ($self->{type} ne 'FDW') {
+		if ($self->{type} ne 'FDW' && !$self->{fkeys_in_create}) {
 			my $create_all = $self->_create_foreign_keys($table);
 			if ($create_all) {
 				if ($self->{file_per_fkeys}) {
@@ -9592,6 +9598,7 @@ sub _get_sql_statements
 				{
 					my @create_all = ();
 					$self->logit("Restoring foreign keys of table $table...\n", 1);
+					local($self->{fkeys_in_create})= 0;
 					push(@create_all, $self->_create_foreign_keys($table));
 					foreach my $str (@create_all)
 					{
@@ -11240,8 +11247,12 @@ sub _create_foreign_keys
 				$rfkeys[$i] = $self->quote_object_name(split(/\s*,\s*/, $rfkeys[$i]));
 			}
 			$fkname = $self->quote_object_name($fkname);
-			$str .= "ALTER TABLE $table DROP CONSTRAINT $self->{pg_supports_ifexists} $fkname;\n" if ($self->{drop_if_exists});
-			$str .= "ALTER TABLE $table ADD CONSTRAINT $fkname FOREIGN KEY (" . join(',', @lfkeys) . ") REFERENCES $subsdesttable(" . join(',', @rfkeys) . ")";
+			unless( $self->{fkeys_in_create}) {
+				$str .= "ALTER TABLE $table DROP CONSTRAINT $self->{pg_supports_ifexists} $fkname;\n" if ($self->{drop_if_exists});
+				$str .= "ALTER TABLE $table ADD CONSTRAINT $fkname FOREIGN KEY (" . join(',', @lfkeys) . ") REFERENCES $subsdesttable(" . join(',', @rfkeys) . ")";
+			} else {
+				$str .= "\tCONSTRAINT $fkname FOREIGN KEY (" . join(',', @lfkeys) . ") REFERENCES $subsdesttable(" . join(',', @rfkeys) . ")";
+			}
 			$str .= " MATCH $state->[2]" if ($state->[2]);
 			if ($state->[3]) {
 				$str .= " ON DELETE $state->[3]";
@@ -11267,7 +11278,11 @@ sub _create_foreign_keys
 					$str .= " NOT VALID";
 				}
 			}
-			$str .= ";\n";
+			unless( $self->{fkeys_in_create}) {
+				$str .= ";\n";
+			} else {
+				$str .= ",\n";
+			}
 			push(@out, $str);
 		}
 	}
