@@ -1825,7 +1825,7 @@ sub _init
 	{
 		$self->{plsql_pgsql} = 1;
 
-		if (grep(/^$self->{type}$/, 'TABLE', 'SEQUENCE', 'SEQUENCE_VALUES', 'GRANT', 'TABLESPACE', 'VIEW', 'TRIGGER', 'QUERY', 'FUNCTION','PROCEDURE','PACKAGE','TYPE','SYNONYM', 'DIRECTORY', 'DBLINK','LOAD'))
+		if (grep(/^$self->{type}$/, 'TABLE', 'SEQUENCE', 'SEQUENCE_VALUES', 'GRANT', 'TABLESPACE', 'VIEW', 'TRIGGER', 'QUERY', 'FUNCTION','PROCEDURE','PACKAGE','TYPE','SYNONYM', 'DIRECTORY', 'DBLINK','LOAD','PRE_IMPORT','POST_IMPORT'))
 		{
 			if ($self->{type} eq 'LOAD')
 			{
@@ -1878,7 +1878,7 @@ sub _init
 	{
                 $self->{type} = $t;
 
-		if (($self->{type} eq 'TABLE') || ($self->{type} eq 'FDW') || ($self->{type} eq 'INSERT') || ($self->{type} eq 'COPY') || ($self->{type} eq 'KETTLE'))
+		if (($self->{type} eq 'TABLE') || ($self->{type} eq 'FDW') || ($self->{type} eq 'INSERT') || ($self->{type} eq 'COPY') || ($self->{type} eq 'KETTLE') || ($self->{type} eq 'PRE_IMPORT') || ($self->{type} eq 'POST_IMPORT'))
 		{
 			$self->{plsql_pgsql} = 1;
 			# Partitionned table do not accept NOT VALID constraint
@@ -9378,7 +9378,8 @@ sub _get_sql_statements
 	}
 
 	# Extract data only
-	elsif (($self->{type} eq 'INSERT') || ($self->{type} eq 'COPY'))
+	elsif (($self->{type} eq 'INSERT') || ($self->{type} eq 'COPY') ||
+               ($self->{type} eq 'PRE_IMPORT' ) || ($self->{type} eq 'POST_IMPORT'))
 	{
 		if ($self->{oracle_fdw_data_export} && $self->{pg_dsn} && $self->{drop_foreign_schema})
 		{
@@ -9400,7 +9401,15 @@ sub _get_sql_statements
 		} elsif ($self->{oracle_dsn} =~ /dbi:ODBC:driver=msodbcsql/i) {
 			$self->{is_mssql} = 1;
 		}
-		$self->{dbh} = $self->_db_connection();
+		if( $self->{input_file} && (($self->{type} eq 'PRE_IMPORT' ) || ($self->{type} eq 'POST_IMPORT')) ){
+			$self->logit("_get_sql_statemets: ".__LINE__." $self->{type}\n", 1, 0);
+			unless( exists $self->{tables} ) {
+				$self->read_schema_from_file();
+			}
+		} else {
+			$self->{dbh} = $self->_db_connection();
+		}
+	
 
 		# Remove external table from data export
 		if (scalar keys %{$self->{external_table}} )
@@ -9421,7 +9430,7 @@ sub _get_sql_statements
 		}
 
 		# Get partition information
-		$self->_partitions() if (!$self->{disable_partition});
+		$self->_partitions() if ((!$self->{disable_partition}) && (!$self->{input_file}) );
 
 		# Ordering tables by name by default
 		my @ordered_tables = sort { $a cmp $b } keys %{$self->{tables}};
@@ -9490,7 +9499,7 @@ sub _get_sql_statements
 				#### Set SQL commands that must be executed before data loading
 
 				# Drop foreign keys if required
-				if ($self->{drop_fkey})
+				if ($self->{drop_fkey} &&  $self->{type} ne 'POST_IMPORT')
 				{
 					$self->logit("Dropping foreign keys of table $table...\n", 1);
 					my @drop_all = $self->_drop_foreign_keys($table, @{$self->{tables}{$table}{foreign_key}});
@@ -9507,7 +9516,7 @@ sub _get_sql_statements
 				}
 
 				# Drop indexes if required
-				if ($self->{drop_indexes})
+				if ($self->{drop_indexes} && $self->{type} ne 'POST_IMPORT')
 				{
 					$self->logit("Dropping indexes of table $table...\n", 1);
 					my @drop_all = $self->_drop_indexes($table, %{$self->{tables}{$table}{indexes}}) . "\n";
@@ -9524,7 +9533,7 @@ sub _get_sql_statements
 				}
 
 				# Disable triggers of current table if requested
-				if ($self->{disable_triggers} && !$self->{oracle_speed})
+				if ($self->{disable_triggers} && !$self->{oracle_speed} && $self->{type} ne 'POST_IMPORT')
 				{
 					my $trig_type = 'USER';
 					$trig_type = 'ALL' if (uc($self->{disable_triggers}) eq 'ALL');
@@ -9728,85 +9737,87 @@ sub _get_sql_statements
 			$pipe->print("GLOBAL EXPORT ROW NUMBER: $self->{global_rows}\n");
 		}
 		$self->{global_start_time} = time();
-		foreach my $table (@ordered_tables)
-		{
-			# Do not process nested table
-			if (!$self->{is_mysql} && exists $self->{tables}{$table}{table_info}{nested} && $self->{tables}{$table}{table_info}{nested} ne 'NO')
+                unless ($self->{input_file}) {
+			foreach my $table (@ordered_tables)
 			{
-				$self->logit("WARNING: nested table $table will not be exported.\n", 1);
-				next;
-			}
-
-			if ($self->{file_per_table} && !$self->{pg_dsn})
-			{
-				# Do not dump data again if the file already exists
-				next if ($self->file_exists("$dirprefix${table}_$self->{output}"));
-			}
-
-			# Set global count
-			$global_count += $self->{tables}{$table}{table_info}{num_rows};
-
-			# Extract all column information used to determine data export.
-			# This hash will be used in function _howto_get_data()
-			%{$self->{colinfo}} = $self->_column_attributes($table, $self->{schema}, 'TABLE');
-
-			# Get the current SCN before getting data for this table
-			if ($self->{cdc_ready})
-			{
-				my $sth = $self->{dbh}->prepare("SELECT CURRENT_SCN FROM v\$database") or $self->logit("FATAL: " . $self->{dbh}->errstr . "\n", 0, 1);
-				$sth->execute or $self->logit("FATAL: " . $self->{dbh}->errstr . "\n", 0, 1);
-				my @row = $sth->fetchrow();
-				$self->{current_oracle_scn}{$table} = $row[0];
-				$sth->finish;
-				$self->logit("Storing SCN for table $table: $self->{current_oracle_scn}{$table}\n", 1);
-			}
-
-			my $total_record = 0;
-			if ($self->{parallel_tables} > 1)
-			{
-				spawn sub {
-					if (!$self->{fdw_server} || !$self->{pg_dsn}) {
-						$self->_export_table_data($table, $dirprefix, $sql_header);
-					} else {
-						$self->_export_fdw_table_data($table, $dirprefix, $sql_header);
-					}
-				};
-				$parallel_tables_count++;
-
-				# Wait for oracle connection terminaison
-				while ($parallel_tables_count > $self->{parallel_tables})
+				# Do not process nested table
+				if (!$self->{is_mysql} && exists $self->{tables}{$table}{table_info}{nested} && $self->{tables}{$table}{table_info}{nested} ne 'NO')
 				{
-					my $kid = waitpid(-1, WNOHANG);
-					if ($kid > 0)
+					$self->logit("WARNING: nested table $table will not be exported.\n", 1);
+					next;
+				}
+
+				if ($self->{file_per_table} && !$self->{pg_dsn})
+				{
+					# Do not dump data again if the file already exists
+					next if ($self->file_exists("$dirprefix${table}_$self->{output}"));
+				}
+
+				# Set global count
+				$global_count += $self->{tables}{$table}{table_info}{num_rows};
+
+				# Extract all column information used to determine data export.
+				# This hash will be used in function _howto_get_data()
+				%{$self->{colinfo}} = $self->_column_attributes($table, $self->{schema}, 'TABLE');
+
+				# Get the current SCN before getting data for this table
+				if ($self->{cdc_ready})
+				{
+					my $sth = $self->{dbh}->prepare("SELECT CURRENT_SCN FROM v\$database") or $self->logit("FATAL: " . $self->{dbh}->errstr . "\n", 0, 1);
+					$sth->execute or $self->logit("FATAL: " . $self->{dbh}->errstr . "\n", 0, 1);
+					my @row = $sth->fetchrow();
+					$self->{current_oracle_scn}{$table} = $row[0];
+					$sth->finish;
+					$self->logit("Storing SCN for table $table: $self->{current_oracle_scn}{$table}\n", 1);
+				}
+
+				my $total_record = 0;
+				if ($self->{parallel_tables} > 1)
+				{
+					spawn sub {
+						if (!$self->{fdw_server} || !$self->{pg_dsn}) {
+							$self->_export_table_data($table, $dirprefix, $sql_header);
+						} else {
+							$self->_export_fdw_table_data($table, $dirprefix, $sql_header);
+						}
+					};
+					$parallel_tables_count++;
+
+					# Wait for oracle connection terminaison
+					while ($parallel_tables_count > $self->{parallel_tables})
 					{
-						$parallel_tables_count--;
-						delete $RUNNING_PIDS{$kid};
+						my $kid = waitpid(-1, WNOHANG);
+						if ($kid > 0)
+						{
+							$parallel_tables_count--;
+							delete $RUNNING_PIDS{$kid};
+						}
+						usleep(50000);
 					}
-					usleep(50000);
 				}
-			}
-			else
-			{
-				if (!$self->{fdw_server} || !$self->{pg_dsn}) {
-					$total_record = $self->_export_table_data($table, $dirprefix, $sql_header);
-				} else {
-					$total_record = $self->_export_fdw_table_data($table, $dirprefix, $sql_header);
-				}
-			}
-
-			# Display total export position
-			if (!$self->{quiet} && !$self->{debug})
-			{
-				if ( ($self->{jobs} <= 1) && ($self->{oracle_copies} <= 1) && ($self->{parallel_tables} <= 1) )
+				else
 				{
-					my $last_end_time = time();
-					my $dt = $last_end_time - $first_start_time;
-					$dt ||= 1;
-					my $rps = int(($total_record || $global_count) / $dt);
-					print STDERR $self->progress_bar(($total_record || $global_count), $self->{global_rows}, 25, '=', 'rows', "on total estimated data ($dt sec., avg: $rps recs/sec)"), "\r";
+					if (!$self->{fdw_server} || !$self->{pg_dsn}) {
+						$total_record = $self->_export_table_data($table, $dirprefix, $sql_header);
+					} else {
+						$total_record = $self->_export_fdw_table_data($table, $dirprefix, $sql_header);
+					}
+				}
+
+				# Display total export position
+				if (!$self->{quiet} && !$self->{debug})
+				{
+					if ( ($self->{jobs} <= 1) && ($self->{oracle_copies} <= 1) && ($self->{parallel_tables} <= 1) )
+					{
+						my $last_end_time = time();
+						my $dt = $last_end_time - $first_start_time;
+						$dt ||= 1;
+						my $rps = int(($total_record || $global_count) / $dt);
+						print STDERR $self->progress_bar(($total_record || $global_count), $self->{global_rows}, 25, '=', 'rows', "on total estimated data ($dt sec., avg: $rps recs/sec)"), "\r";
+					}
 				}
 			}
-		}
+                }
 		if (!$self->{quiet} && !$self->{debug})
 		{
 			if ( ($self->{jobs} <= 1) && ($self->{oracle_copies} <= 1) && ($self->{parallel_tables} <= 1) ) {
@@ -9869,10 +9880,10 @@ sub _get_sql_statements
 			my $sth2 = $self->{dbh}->do($efile_function);
 		}
 
+		my $footer = '';
 		#### Set SQL commands that must be executed after data loading
 		if (!$self->{oracle_speed})
 		{
-			my $footer = '';
 
 			# When copy freeze is required, start a new the transaction
 			if ($self->{copy_freeze} && !$self->{pg_dsn})
@@ -9966,7 +9977,7 @@ sub _get_sql_statements
 				}
 
 				# disable triggers of current table if requested
-				if ($self->{disable_triggers} && !$self->{oracle_speed})
+				if ($self->{disable_triggers} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
 				{
 					my $trig_type = 'USER';
 					$trig_type = 'ALL' if (uc($self->{disable_triggers}) eq 'ALL');
@@ -9979,7 +9990,7 @@ sub _get_sql_statements
 				}
 
 				# Recreate all foreign keys of the concerned tables
-				if ($self->{drop_fkey} && !$self->{oracle_speed})
+				if ($self->{drop_fkey} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
 				{
 					my @create_all = ();
 					$self->logit("Restoring foreign keys of table $table...\n", 1);
@@ -9998,7 +10009,7 @@ sub _get_sql_statements
 				}
 
 				# Recreate all indexes
-				if ($self->{drop_indexes} && !$self->{oracle_speed})
+				if ($self->{drop_indexes} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
 				{
 					my @create_all = ();
 					$self->logit("Restoring indexes of table $table...\n", 1);
@@ -10021,7 +10032,7 @@ sub _get_sql_statements
 			}
 
 			# Insert restart sequences orders
-			if (($#ordered_tables >= 0) && !$self->{disable_sequence} && !$self->{oracle_speed})
+			if (($#ordered_tables >= 0) && !$self->{disable_sequence} && !$self->{oracle_speed} && (!$self->{input_file}))
 			{
 				$self->logit("Restarting sequences\n", 1);
 				my @restart_sequence = $self->_extract_sequence_info();
