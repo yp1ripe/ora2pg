@@ -3456,6 +3456,7 @@ sub read_schema_from_file
 				$self->{tables}{$tb_name}{table_info}{comment} = $1;
 			}
 			$tb_def =~ s/^\(//;
+                        $self->_remove_text_constant_part(\$tb_def);
 			while ($tb_def =~ s/(\([^\(\)]*\))/\%\%FCT$fcti\%\%/is)
 			{
 				$fct_placeholder{$fcti} = $1;
@@ -8705,7 +8706,8 @@ sub export_table
 								if (($f->[4] !~ /^'/) && ($f->[4] =~ /[^\d\.]/))
 								{
 									if ($type =~ /CHAR|TEXT/i || ($was_enum && $f->[1] =~ /'/i)) {
-										$f->[4] = "'$f->[4]'" if ($f->[4] !~ /[']/ && $f->[4] !~ /\(.*\)/ && uc($f->[4]) ne 'NULL');
+										$f->[4] = "'$f->[4]'" if ($f->[4] !~ /[']/ && $f->[4] !~ /\(.*\)/ && uc($f->[4]) ne 'NULL' && $f->[4] !~ /\?TEXTVALUE\d+\?/);
+										$self->logit(" default string: 1 $f->[4]\n",2,0);
 									}
 									elsif ($type =~ /DATE|TIME/i)
 									{
@@ -8743,6 +8745,8 @@ sub export_table
 									{
 										if ($type =~ /CHAR|TEXT/i || ($was_enum && $f->[1] =~ /'/i)) {
 											$f->[4] = "'$f->[4]'" if ($f->[4] !~ /[']/ && $f->[4] !~ /\(.*\)/ && uc($f->[4]) ne 'NULL');
+											
+											$self->logit(" default string: 2 $f->[4]\n",2,0);
 										}
 										elsif ($type =~ /DATE|TIME/i)
 										{
