@@ -6929,6 +6929,7 @@ sub export_package
 		$self->_remove_comments(\$content);
 		# Normalise start of package declaration
 		$content =~ s/CREATE(?:\s+OR\s+REPLACE)?(?:\s+EDITIONABLE|\s+NONEDITIONABLE)?\s+PACKAGE\s+/CREATE OR REPLACE PACKAGE /igs;
+                last if $content !~ /CREATE OR REPLACE PACKAGE /igs ;
 		# Preserve header
 		$content =~ s/^(.*?)(CREATE OR REPLACE PACKAGE)/$2/s;
 		my $start = $1 || '';
