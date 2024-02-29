@@ -2959,11 +2959,11 @@ sub _parse_constraint
 			}
 		}
 		my $deferrable = '';
-		$deferrable = 'DEFERRABLE' if ($c =~ /DEFERRABLE/);
+		$deferrable = 'DEFERRABLE' if ($c =~ /DEFERRABLE/i);
 		my $deferred = '';
-		$deferred = 'DEFERRED' if ($c =~ /INITIALLY DEFERRED/);
+		$deferred = 'DEFERRED' if ($c =~ /INITIALLY DEFERRED/i);
 		my $novalidate = '';
-		$novalidate = 'NOT VALIDATED' if ($c =~ /NOVALIDATE/);
+		$novalidate = 'NOT VALIDATED' if ($c =~ /NOVALIDATE/i);
 		# CONSTRAINT_NAME,R_CONSTRAINT_NAME,SEARCH_CONDITION,DELETE_RULE,$deferrable,DEFERRED,R_OWNER,TABLE_NAME,OWNER,UPDATE_RULE,VALIDATED
 		push(@{$self->{tables}{$tb_name}{foreign_key}}, [ ($c_name,'','',$on_delete,$deferrable,$deferred,'',$tb_name,'','',$novalidate) ]);
 	}
