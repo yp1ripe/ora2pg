@@ -2908,7 +2908,7 @@ sub _parse_constraint
 {
 	my ($self, $tb_name, $cur_col_name, $c) = @_;
 
-	if ($c =~ /^([^\s]+)\s+(UNIQUE|PRIMARY KEY)\s*\(([^\)]+)\)/is)
+	if ($c =~ /^([^\s]+)\s+(UNIQUE|PRIMARY KEY)\s*\(([^\)]+?)\s*\)/is)
 	{
 		my $tp = 'U';
 		$tp = 'P' if ("\U$2\E" eq 'PRIMARY KEY');
@@ -2916,6 +2916,7 @@ sub _parse_constraint
 			type => $tp, 'generated' => 0, 'index_name' => $1,
 			columns => ()
 		) };
+                
 		push(@{$self->{tables}{$tb_name}{unique_key}{$1}{columns}}, split(/\s*,\s*/, $3));
 	}
 	elsif ($c =~ /^([^\s]+)\s+CHECK\s*\((.*)\)/is)
@@ -11384,7 +11385,10 @@ sub _unique_needs_nulls_not_distinct
 		use warnings;
 
 		my $realcolname = "\U$conscols[$i]\E";
+		$self->logit("_unique_needs_nulls_not_distinct: checking '$realcolname'\n",2);
 		my $colinfo =  $self->{tables}{$table}{column_info}{$realcolname};
+		$self->logit("_unique_needs_nulls_not_distinct: colinfo ".Data::Dumper::Dumper($self->{tables}{$table}{column_info}),2);
+		$self->logit("_unique_needs_nulls_not_distinct: colinfo $colinfo\n",2);
 		next unless defined($colinfo);# an expression in FB index, for example, so inconclusive and let's skip it
 		my $tmpval =  $self->{tables}{$table}{column_info}{$realcolname}[3];
 		$self->logit("_unique_needs_nulls_not_distinct: $realcolname tmpval $tmpval\n",2);
