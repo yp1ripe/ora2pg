@@ -820,7 +820,7 @@ sub plsql_to_plpgsql
 		$type_conv = $class->{default_string_agg_type_conv};
 
 	}
-	$str =~ s/\bLISTAGG\s*\(([^,]*)(.*?)(?:\s*ON OVERFLOW [^\)]+)?\)\s+WITHIN\s+GROUP\s*\((.*?)\)/string_agg($1$type_conv $2 $3)/igs;
+	$str =~ s/\bLISTAGG\s*\(([^,]*)(.*?)(?:\s*ON OVERFLOW [^\)]+)?\)\s+WITHIN\s+GROUP\s*\((.*?)\)/string_agg(${1}${type_conv}${2} ${3})/igs;
 	#$str =~ s/\bLISTAGG\s*\((.*?)(?:\s*ON OVERFLOW [^\)]+)?\)\s+WITHIN\s+GROUP\s*\((.*?)\)/string_agg($1 $2)/igs;
 	# Try to fix call to string_agg with a single argument (allowed in oracle)
 	$str =~ s/\bstring_agg\(([^,\(\)]+)\s+(ORDER\s+BY)/string_agg($1, '' $2/igs;
