@@ -5718,7 +5718,7 @@ sub export_sequence_values
 			print STDERR $self->progress_bar($i, $num_total_sequence, 25, '=', 'sequences', "generating $seq" ), "\r";
 		}
 		$count_seq++;
-		$sql_output .= "ALTER SEQUENCE " . $self->quote_object_name($seq) . " START WITH $self->{sequences}{$seq}->[4];\n";
+		$sql_output .= "ALTER SEQUENCE " . $self->quote_object_name($seq) . " RESTART WITH $self->{sequences}{$seq}->[4];\n";
 		$i++;
 	}
 	if (!$self->{quiet} && !$self->{debug}) {
@@ -9520,6 +9520,24 @@ sub _get_sql_statements
 						}
 					}
 				}
+				# Drop most of unique keys if required
+				if ($self->{drop_indexes} && $self->{type} ne 'POST_IMPORT')
+				{
+					$self->logit("Dropping most of unique keys of table $table...\n", 1);
+					my @drop_all = $self->_drop_unique_keys($table, $self->{tables}{$table}{unique_key}, 1) . "\n";
+					foreach my $str (@drop_all)
+					{
+						chomp($str);
+						next if (!$str);
+						if ($self->{pg_dsn}) {
+						# untested yet
+						#	my $s = $self->{dbhdest}->do($str) or $self->logit("FATAL: " . $self->{dbhdest}->errstr . "\n", 0, 1);				
+							0;
+						} else {
+							$first_header .= "$str\n";
+						}
+					}
+				}
 
 				# Drop indexes if required
 				if ($self->{drop_indexes} && $self->{type} ne 'POST_IMPORT')
@@ -10013,7 +10031,16 @@ sub _get_sql_statements
 						}
 					}
 				}
-
+				# Recreate most of unique constraints
+				if ($self->{drop_indexes} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
+				{
+					my $ukeys = '';
+					local($self->{ukeys_in_create})= 0;
+					$self->logit("Restoring most of unique constraints of table $table...\n", 1);
+					$self->logit(Data::Dumper::Dumper($self->{tables}{$table}{unique_key}) , 3);
+		                        $ukeys = $self->_create_unique_keys($table, $self->{tables}{$table}{unique_key}, undef, 1);
+					$footer .= $ukeys;
+				}
 				# Recreate all indexes
 				if ($self->{drop_indexes} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
 				{
@@ -11316,6 +11343,7 @@ sub _exportable_indexes
 		foreach my $consname (keys %{$self->{tables}{$table}{unique_key}})
 		{
 			my $constype =  $self->{tables}{$table}{unique_key}->{$consname}{type};
+			Data::Dumper::Dumper($self->{tables}{$table}{unique_key}->{$consname}) unless defined ($constype);
 			next if (($constype ne 'P') && ($constype ne 'U'));
 			my @conscols = @{$self->{tables}{$table}{unique_key}->{$consname}{columns}};
 			$columnlist = join(',', @conscols);
@@ -11483,18 +11511,24 @@ This function return SQL code to create unique and primary keys of a table
 =cut
 sub _create_unique_keys
 {
-	my ($self, $table, $unique_key, $partition) = @_;
+	my ($self, $table, $unique_key, $partition, $post_import) = @_;
 
 	my $out = '';
 
 	my $tbsaved = $table;
+	$post_import = 0 unless ( defined($post_import) && $post_import  );
 	$table = $self->get_replaced_tbname($table);
-
+	my $first_key_skipped = 0;
 	# Set the unique (and primary) key definition 
-	foreach my $consname (keys %$unique_key)
+	$self->logit("_create_unique_keys partition=$partition, post_import=$post_import\n",1);
+	foreach my $consname (sort { $unique_key->{$a}{type} <=> $unique_key->{$b}->{type} or $a cmp $b  } keys %$unique_key)
 	{
-		next if ($self->{pkey_in_create} && ($unique_key->{$consname}{type} eq 'P') ||
-                         $self->{ukeys_in_create} && ($unique_key->{$consname}{type} eq 'U'));
+		if ( defined($post_import) && $post_import && !$first_key_skipped ) {
+			$first_key_skipped = 1;
+			next;
+		}
+		next if ( ($self->{pkey_in_create} && ($unique_key->{$consname}{type} eq 'P') ||
+                         $self->{ukeys_in_create} && ($unique_key->{$consname}{type} eq 'U') )&& ! $post_import );
 		my $constype =   $unique_key->{$consname}{type};
 		my $constgen =   $unique_key->{$consname}{generated};
 		my $index_name = $unique_key->{$consname}{index_name};
@@ -11569,7 +11603,43 @@ sub _create_unique_keys
 			$out .= ";\n";
 		}
 	}
+	$self->logit("_create_unique_keys out=$out\n",1);
 	return $out;
+}
+=head2 _drop_unique_keys
+
+This function return SQL code to create unique and primary keys of a table
+
+=cut
+sub _drop_unique_keys()
+{
+        my ($self, $table, $unique_key, $post_import) = @_;
+
+        my @out = ();
+
+        my $tbsaved = $table;
+	$self->logit("_drop_unique_keys table=$table, post_import=$post_import\n",1);
+	$post_import = 0 unless ( defined($post_import) && $post_import  );
+	$table = $self->get_replaced_tbname($table);
+	my $first_key_skipped = 0;
+	$self->logit("_drop_unique_keys table=$table, post_import=$post_import\n",1);
+	foreach my $consname (sort { $unique_key->{$a}{type} <=> $unique_key->{$b}->{type} or $a cmp $b  } keys %$unique_key)
+	{
+		if ( defined($post_import) && $post_import && !$first_key_skipped ) {
+			$first_key_skipped = 1;
+			next;
+		}
+		next if ( ($self->{pkey_in_create} && ($unique_key->{$consname}{type} eq 'P') ||
+                         $self->{ukeys_in_create} && ($unique_key->{$consname}{type} eq 'U') )&& ! $post_import );
+		my $constype =   $unique_key->{$consname}{type};
+		my $str = '';
+		$consname =  $self->quote_object_name($consname);
+		$str .= "ALTER TABLE $table DROP CONSTRAINT $self->{pg_supports_ifexists} $consname;";
+		push(@out, $str);
+	}
+
+	$self->logit("_drop_unique_keys out=".join("\n",@out),1);
+	return wantarray ? @out : join("\n", @out);
 }
 
 =head2 _create_check_constraint
