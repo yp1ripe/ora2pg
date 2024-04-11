@@ -1680,6 +1680,7 @@ sub _init
 	$self->{skip_set_nn} ||= 0;
 	$self->{align_column_types} ||= 0;
 	$self->{remove_schema_from_fbi} ||= 0;
+	$self->{force_idx_concurrently} ||= 0;
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
 	$self->{stop_on_error} = 1 if (not defined $self->{stop_on_error});
@@ -2916,8 +2917,11 @@ sub _parse_constraint
 			type => $tp, 'generated' => 0, 'index_name' => $1,
 			columns => ()
 		) };
+                $self->{tables}{$tb_name}{uniqueness}{"\U$1\E"} = 'UNIQUE';
+                $self->{tables}{$tb_name}{indexes}{"\U$1\E"} = [] if $tp eq 'U';
                 
 		push(@{$self->{tables}{$tb_name}{unique_key}{$1}{columns}}, split(/\s*,\s*/, $3));
+		push(@{$self->{tables}{$tb_name}{indexes}{"\U$1\E"}}, split(/\s*,\s*/, $3)) if $tp eq 'U'; 
 	}
 	elsif ($c =~ /^([^\s]+)\s+CHECK\s*\((.*)\)/is)
 	{
@@ -10031,16 +10035,6 @@ sub _get_sql_statements
 						}
 					}
 				}
-				# Recreate most of unique constraints
-				if ($self->{drop_indexes} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
-				{
-					my $ukeys = '';
-					local($self->{ukeys_in_create})= 0;
-					$self->logit("Restoring most of unique constraints of table $table...\n", 1);
-					$self->logit(Data::Dumper::Dumper($self->{tables}{$table}{unique_key}) , 3);
-		                        $ukeys = $self->_create_unique_keys($table, $self->{tables}{$table}{unique_key}, undef, 1);
-					$footer .= $ukeys;
-				}
 				# Recreate all indexes
 				if ($self->{drop_indexes} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
 				{
@@ -10061,6 +10055,16 @@ sub _get_sql_statements
 							}
 						}
 					}
+				}
+				# Recreate most of unique constraints
+				if ($self->{drop_indexes} && !$self->{oracle_speed} && ($self->{type} ne 'PRE_IMPORT'))
+				{
+					my $ukeys = '';
+					local($self->{ukeys_in_create})= 0;
+					$self->logit("Restoring most of unique constraints of table $table...\n", 1);
+					$self->logit(Data::Dumper::Dumper($self->{tables}{$table}{unique_key}) , 3);
+		                        $ukeys = $self->_create_unique_keys($table, $self->{tables}{$table}{unique_key}, undef, 1);
+					$footer .= $ukeys;
 				}
 			}
 
@@ -10843,6 +10847,7 @@ sub _create_indexes
 	# Set the index definition
 	foreach my $idx (sort keys %indexes)
 	{
+		$self->logit("_create_indexes:".__LINE__.": $idx\n",2);
 		# Remove cols than have only digit as name
 		@{$indexes{$idx}} = grep(!/^\d+$/, @{$indexes{$idx}});
 
@@ -10989,7 +10994,8 @@ sub _create_indexes
 			}
 			if (lc($columnlist) eq lc($colscompare))
 			{
-				$skip_index_creation = 1;
+				$self->logit("skipping index $idx",1);
+				$skip_index_creation = 1 unless ($self->{force_idx_concurrently} && $constype eq 'U') ;
 				last;
 			}
 		}
@@ -11004,6 +11010,7 @@ sub _create_indexes
 			my $str = '';
 			my $fts_str = '';
 			my $concurrently = '';
+			$concurrently = ' CONCURRENTLY IF NOT EXISTS' if $self->{force_idx_concurrently};
 			if ($self->{$objtyp}{$tbsaved}{concurrently}{$idx}) {
 				$concurrently = ' CONCURRENTLY';
 			}
@@ -11588,7 +11595,8 @@ sub _create_unique_keys
 				$out .= "ALTER TABLE $table ADD $constypename ($columnlist)";
 			} else {
 				$str .= "ALTER TABLE $table DROP CONSTRAINT $self->{pg_supports_ifexists} " . $self->quote_object_name($consname) . ";\n" if ($self->{drop_if_exists});
-				$out .= "ALTER TABLE $table ADD CONSTRAINT " . $self->quote_object_name($consname) . " $constypename ($columnlist)";
+				$out .= "ALTER TABLE $table ADD CONSTRAINT " . $self->quote_object_name($consname) . " " .$constypename .( !$post_import ? $self->_unique_needs_nulls_not_distinct("\U$table\E", $consname , @conscols) : '') ." ($columnlist)";
+				$out .= " using index  " . $self->quote_object_name($consname) if $post_import ;
 			}
 			if ($self->{use_tablespace} && $self->{tables}{$tbsaved}{idx_tbsp}{$index_name} && !grep(/^$self->{tables}{$tbsaved}{idx_tbsp}{$index_name}$/i, @{$self->{default_tablespaces}})) {
 				$out .= " USING INDEX TABLESPACE $self->{tables}{$tbsaved}{idx_tbsp}{$index_name}";
