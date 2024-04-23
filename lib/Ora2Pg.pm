@@ -3746,8 +3746,10 @@ sub read_schema_from_file
 			}
 
 			foreach my $k (keys %{$self->{tables}{$tb_name}{unique_key}} ) {
-				if( $k eq  $cons ) {
+				if( "\U$k\E" eq  "\U$cons\E" ) {
 					delete $self->{tables}{$tb_name}{unique_key}{$k};
+					delete $self->{tables}{$tb_name}{uniqueness}{"\U$k\E"};
+					delete $self->{tables}{$tb_name}{indexes}{"\U$k\E"};
 					last;
 			        }
 			}
@@ -10976,7 +10978,12 @@ sub _create_indexes
 		my $skip_index_creation = 0;
 		my %pk_hist = ();
 
-		foreach my $consname (keys %{$self->{$objtyp}{$tbsaved}{unique_key}})
+
+		my $unique_key = $self->{$objtyp}{$tbsaved}{unique_key};
+		my @keys  = (sort { $unique_key->{$a}{type} <=> $unique_key->{$b}->{type} or $a cmp $b  } keys %$unique_key); 
+		my $first_key = 1;
+
+		foreach my $consname (@keys)
 		{
 			my $constype =  $self->{$objtyp}{$tbsaved}{unique_key}->{$consname}{type};
 			next if (($constype ne 'P') && ($constype ne 'U'));
@@ -10998,9 +11005,11 @@ sub _create_indexes
 			if (lc($columnlist) eq lc($colscompare))
 			{
 				$self->logit("skipping index $idx",1);
-				$skip_index_creation = 1 unless ($self->{force_idx_concurrently} && $constype eq 'U') ;
+				$skip_index_creation = 1
+					unless($self->{force_idx_concurrently} && $constype eq 'U' && !$first_key );
 				last;
 			}
+			$first_key = 0;
 		}
 
 		# Do not create the index if there already a constraint on the same column list
@@ -11598,7 +11607,7 @@ sub _create_unique_keys
 				$out .= "ALTER TABLE $table ADD $constypename ($columnlist)";
 			} else {
 				$str .= "ALTER TABLE $table DROP CONSTRAINT $self->{pg_supports_ifexists} " . $self->quote_object_name($consname) . ";\n" if ($self->{drop_if_exists});
-				$out .= "ALTER TABLE $table ADD CONSTRAINT " . $self->quote_object_name($consname) . " " .$constypename .( !$post_import ? $self->_unique_needs_nulls_not_distinct("\U$table\E", $consname , @conscols) : '') ." ($columnlist)";
+				$out .= "ALTER TABLE $table ADD CONSTRAINT " . $self->quote_object_name($consname) . " " .$constypename .( !$post_import ? $self->_unique_needs_nulls_not_distinct("\U$table\E", $consname , @conscols) ." ($columnlist)" : '' );
 				$out .= " using index  " . $self->quote_object_name($consname) if $post_import ;
 			}
 			if ($self->{use_tablespace} && $self->{tables}{$tbsaved}{idx_tbsp}{$index_name} && !grep(/^$self->{tables}{$tbsaved}{idx_tbsp}{$index_name}$/i, @{$self->{default_tablespaces}})) {
