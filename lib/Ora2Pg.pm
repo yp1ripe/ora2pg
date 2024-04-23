@@ -1681,6 +1681,7 @@ sub _init
 	$self->{align_column_types} ||= 0;
 	$self->{remove_schema_from_fbi} ||= 0;
 	$self->{force_idx_concurrently} ||= 0;
+	$self->{strict_col_comments} = 1 if (not defined $self->{strict_col_comments} );
 	$self->{security} = ();
 	# Should we add SET ON_ERROR_STOP to generated SQL files
 	$self->{stop_on_error} = 1 if (not defined $self->{stop_on_error});
@@ -3795,8 +3796,10 @@ sub read_schema_from_file
 			if( exists $self->{tables}{$tb_name}{column_comments} ) {
 				foreach my $c_name ( keys $self->{tables}{$tb_name}{column_comments} ) {
 					unless( exists $self->{tables}{$tb_name}{column_info}{"\U$c_name\E"} ) {
-						delete $self->{tables}{$tb_name}{column_comments}{$c_name};
-						$self->logit("read_schema_from_file: drop column $tb_name $c_name comments  ".Data::Dumper::Dumper($self->{tables}{$tb_name}),3);
+						if($self->{strict_col_comments})  {
+							delete $self->{tables}{$tb_name}{column_comments}{$c_name};
+							$self->logit("read_schema_from_file: drop column $tb_name $c_name comments  ".Data::Dumper::Dumper($self->{tables}{$tb_name}),3);
+						}
 					}
 				}
 			}
