@@ -3853,7 +3853,7 @@ sub read_comment_from_file
 			$cname =~ s/\%\%COLNAME(\d+)\%\%/$col_name{$1}/sg;
 			$cname =~ s/"//g;
 			$cname =~ s/\./_/g;
-			if (exists $self->{tables}{$tb_name}) {
+			if (exists $self->{tables}{$tb_name} || !$self->{strict_col_comments}) {
 					$self->{tables}{$tb_name}{column_comments}{"\L$cname\E"} = $tb_comment;
 			} elsif (exists $self->{views}{$tb_name}) {
 					$self->{views}{$tb_name}{column_comments}{"\L$cname\E"} = $tb_comment;
@@ -8414,7 +8414,7 @@ sub export_table
 				$sql_output .= "\nALTER $obj_type $tbname $_;\n";
 			}
 		}
-		if (exists $self->{tables}{$table}{column_info} || exists $self->{tables}{$table}{unique_key} ||
+		if (exists $self->{tables}{$table}{column_info} && scalar(keys %{$self->{tables}{$table}{column_info}}) || exists $self->{tables}{$table}{unique_key} ||
 			exists  $self->{tables}{$table}{foreign_key} || $self->{tables}{$table}{check_constraint} )
 		{
 			my $schem = '';
