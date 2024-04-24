@@ -3531,7 +3531,7 @@ sub read_schema_from_file
 				$self->{tables}{$tb_name}{idx_tbsp}{$idx_name} = $1;
 				$self->{tables}{$tb_name}{idx_tbsp}{$idx_name} =~ s/"//gs;
 			}
-			if ($idx_def =~ s/\bONLINE\b//is) {
+			if ($idx_def =~ s/\bONLINE\b//is || $self->{force_idx_concurrently}) {
 				$self->{tables}{$tb_name}{concurrently}{$idx_name} = 1;
 			}
 			if ($idx_def =~ s/INDEXTYPE\s+IS\s+.*SPATIAL_INDEX//is)
