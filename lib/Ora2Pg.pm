@@ -3718,6 +3718,24 @@ sub read_schema_from_file
 			}
 
 		}
+		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+MODIFY\s*(\S+)\s*((not)?\s+(null));//is)
+		{
+			my $tb_name = $1;
+			my $c_name = $2;
+			if(!$self->{preserve_case}) {
+				$tb_name =~ s/"//gs;
+				$tb_name = "\U$tb_name\E";
+				$c_name =~ s/"//gs;
+				$c_name = "\U$c_name\E";
+			}
+			if( ! exists( $self->{tables}{$tb_name} ) ) {
+				$self->{tables}{$tb_name}{use_alter} = 1;
+			}
+                        if( exists $self->{tables}{$tb_name}{use_alter} && $self->{tables}{$tb_name}{use_alter} == 1  ) {
+                                push(@{$self->{tables}{$tb_name}{alter_table}}, "alter column $c_name set $3");
+                        }
+
+		}
 		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+drop\s+primary\s+key([^;]*);//is)
 		{
 			my $tb_name = "\U$1\E";
@@ -11022,10 +11040,10 @@ sub _create_indexes
 			my $str = '';
 			my $fts_str = '';
 			my $concurrently = '';
-			$concurrently = ' CONCURRENTLY IF NOT EXISTS' if $self->{force_idx_concurrently};
 			if ($self->{$objtyp}{$tbsaved}{concurrently}{$idx}) {
 				$concurrently = ' CONCURRENTLY';
 			}
+			$concurrently = ' CONCURRENTLY IF NOT EXISTS' if $self->{force_idx_concurrently} && $self->{type} eq 'POST_IMPORT';
 			$columns = lc($columns) if (!$self->{preserve_case});
 			next if ( lc($columns) eq lc($pkcollist{$tbsaved}) );
 
