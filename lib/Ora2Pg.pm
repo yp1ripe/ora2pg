@@ -5120,6 +5120,7 @@ sub export_view
 		}
 		$tmpv = $self->quote_object_name($tmpv);
 
+                $sql_output .= "DROP VIEW $self->{pg_supports_ifexists} $tmpv;\n" if ($self->{drop_if_exists});
 		if (!@{$self->{views}{$view}{alias}})
 		{
 			$sql_output .= "CREATE$self->{create_or_replace} VIEW $tmpv AS ";
