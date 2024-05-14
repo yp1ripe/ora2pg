@@ -3728,12 +3728,13 @@ sub read_schema_from_file
 				$c_name =~ s/"//gs;
 				$c_name = "\U$c_name\E";
 			}
-			if( ! exists( $self->{tables}{$tb_name} ) ) {
-				$self->{tables}{$tb_name}{use_alter} = 1;
+			my $nn = '';
+			if( lc($4) eq 'not') {
+				$nn = 'set not null';
+			} else {
+				$nn = 'drop not null';
 			}
-                        if( exists $self->{tables}{$tb_name}{use_alter} && $self->{tables}{$tb_name}{use_alter} == 1  ) {
-                                push(@{$self->{tables}{$tb_name}{alter_table}}, "alter column $c_name set $3");
-                        }
+			push(@{$self->{tables}{$tb_name}{alter_table}}, "alter column $c_name $nn");
 
 		}
 		elsif ($content =~ s/ALTER\s+TABLE\s+([^\s]+)\s+drop\s+primary\s+key([^;]*);//is)
