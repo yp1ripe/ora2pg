@@ -11005,6 +11005,7 @@ sub _create_indexes
 
 		foreach my $consname (@keys)
 		{
+		        $self->logit("_create_indexes:".__LINE__.": Processing $consname\n",2);
 			my $constype =  $self->{$objtyp}{$tbsaved}{unique_key}->{$consname}{type};
 			next if (($constype ne 'P') && ($constype ne 'U'));
 			my @conscols = grep(!/^\d+$/, @{$self->{$objtyp}{$tbsaved}{unique_key}->{$consname}{columns}});
@@ -11021,12 +11022,14 @@ sub _create_indexes
 			if ($constype eq 'P')
 			{
 				$pk_hist{$table} = $columnlist;
+				$first_key = 0;
 			}
-			if (lc($columnlist) eq lc($colscompare))
+		        $self->logit("_create_indexes:".__LINE__.": Processing $columnlist $colscompare $first_key $self->{force_idx_concurrently}\n",2);
+			if (lc($columnlist) eq lc($colscompare) &&
+			      $constype eq 'U' && !$fist_key)
 			{
 				$self->logit("skipping index $idx",1);
-				$skip_index_creation = 1
-					unless($self->{force_idx_concurrently} && $constype eq 'U' && !$first_key );
+				$skip_index_creation = 1;
 				last;
 			}
 			$first_key = 0;
