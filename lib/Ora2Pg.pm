@@ -11026,7 +11026,7 @@ sub _create_indexes
 			}
 		        $self->logit("_create_indexes:".__LINE__.": Processing $columnlist $colscompare $first_key $self->{force_idx_concurrently}\n",2);
 			if (lc($columnlist) eq lc($colscompare) &&
-			      $constype eq 'U' && !$fist_key)
+			      $constype eq 'U' && !$fist_key && !( grep {$self->{type} eq $_} qw(POST_IMPORT PRE_IMPORT) ) )
 			{
 				$self->logit("skipping index $idx",1);
 				$skip_index_creation = 1;
@@ -11195,7 +11195,7 @@ CREATE TRIGGER $trig_name BEFORE INSERT OR UPDATE
 			{
 				my @cols = split(/\s*,\s*/, $columns);
 				$str .= "CREATE$unique INDEX$concurrently " . $idxname
-						. " ON $table ($columns)".$self->_unique_needs_nulls_not_distinct($tbsaved, $idxname, @cols);
+						. " ON $table ($columns)".( $unique ? $self->_unique_needs_nulls_not_distinct($tbsaved, $idxname, @cols) : '' );
 			}
 			if ($#{$self->{$objtyp}{$tbsaved}{idx_type}{$idx}{type_include}} >= 0) {
 				$str .= " INCLUDE (" . join(', ', @{$self->{$objtyp}{$tbsaved}{idx_type}{$idx}{type_include}}) . ')';
