@@ -11239,13 +11239,16 @@ sub _drop_indexes
 	my $tbsaved = $table;
 	$table = $self->get_replaced_tbname($table);
 	$self->logit("_drop_indexes:".__LINE__.":".Data::Dumper::Dumper(\%indexes)."\n",3);
+	my $concurrently = ' CONCURRENTLY ' if $self->{force_idx_concurrently} && $self->{type} eq 'PRE_IMPORT';
 
 	my @out = ();
 	# Set the index definition
 	foreach my $idx (keys %indexes)
 	{
+
 		# Cluster, bitmap join, reversed and IOT indexes will not be exported at all
 		next if ($self->{tables}{$tbsaved}{idx_type}{$idx}{type} =~ /JOIN|IOT|CLUSTER|REV/i);
+                my $unique = ' UNIQUE ' if ($self->{tables}{$tbsaved}{uniqueness}{$idx} eq 'UNIQUE');
 
 		if (exists $self->{replaced_cols}{"\L$tbsaved\E"} && $self->{replaced_cols}{"\L$tbsaved\E"})
 		{
@@ -11352,7 +11355,7 @@ sub _drop_indexes
 			}
 			else
 			{
-				push(@out, "DROP INDEX $self->{pg_supports_ifexists} $idxname\L$self->{indexes_suffix}\E;");
+				push(@out, "DROP INDEX$concurrently $self->{pg_supports_ifexists} $idxname\L$self->{indexes_suffix}\E;". ($unique ? "--$unique" : ''));
 			}
 		}
 	}
