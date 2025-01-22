@@ -1760,6 +1760,21 @@ sub _init
 	if ($self->{fdw_server} && $self->{type} =~ /^(INSERT|COPY)$/) {
 		$self->{oracle_fdw_data_export} = 1;
 	}
+	# Register export structure modification
+	if ($self->{type} =~ /^(INSERT|COPY|TABLE|TEST|TEST_DATA)$/)
+	{
+		for my $t (keys %{$self->{'modify_struct'}}) {
+			$self->modify_struct($t, @{$self->{'modify_struct'}{$t}});
+		}
+		for my $t (keys %{$self->{'exclude_columns'}}) {
+			$self->exclude_columns($t, @{$self->{'exclude_columns'}{$t}});
+		}
+		# Look for custom data type
+		if ($self->{is_mssql}) {
+			$self->logit("Looking for user defined data type of type FROM => DOMAIN...\n", 1);
+			$self->_get_types();
+		}
+	}
 
 	if (!$self->{input_file})
 	{
@@ -1844,22 +1859,6 @@ sub _init
 			$self->logit("FATAL: bad export type using input file option\n", 0, 1);
 		}
 		return;
-	}
-
-	# Register export structure modification
-	if ($self->{type} =~ /^(INSERT|COPY|TABLE|TEST|TEST_DATA)$/)
-	{
-		for my $t (keys %{$self->{'modify_struct'}}) {
-			$self->modify_struct($t, @{$self->{'modify_struct'}{$t}});
-		}
-		for my $t (keys %{$self->{'exclude_columns'}}) {
-			$self->exclude_columns($t, @{$self->{'exclude_columns'}{$t}});
-		}
-		# Look for custom data type
-		if ($self->{is_mssql}) {
-			$self->logit("Looking for user defined data type of type FROM => DOMAIN...\n", 1);
-			$self->_get_types();
-		}
 	}
 
 	if ($self->{oracle_fdw_data_export} && scalar keys %{$self->{'modify_struct'}} > 0) {
@@ -3044,7 +3043,12 @@ sub _need_check_limited_obj ()
 	$self->logit("_need_check_limited_obj: unsupported object type $obj_type\n",0,1)
 		unless ( grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER PROCEDURE FUNCTION INDEX TYPE));
 
-	return (scalar(@{$self->{limited}{$obj_type}})>0 || scalar(@{$self->{excluded}{$obj_type}})>0);
+	my $res = 0;
+        $res = 1 if (scalar(@{$self->{limited}{$obj_type}})>0 || scalar(@{$self->{excluded}{$obj_type}})>0);
+
+	$self->logit("_need_check_limited_obj: returning $res for $obj_type\n".Dumper($self->{excluded}),3);
+	#return (scalar(@{$self->{limited}{$obj_type}})>0 || scalar(@{$self->{excluded}{$obj_type}})>0);
+	return $res;
 }
 
 sub _has_meta_chars()
@@ -3072,8 +3076,9 @@ sub _limited_obj_find_int_id
 	CORE::state $oid = 0;
 
 	my ( $self, $obj_type, $obj_name )  = @_;
+	$self->logit("_limited_obj_find_int_id $obj_type $obj_name\n",2);
 	$self->logit("_limited_obj_find_int_id must be called with 2 args\n",0,1)
-		unless ( $obj_type && $obj_name || grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER));
+		unless ( $obj_type && $obj_name || grep {$obj_type eq $_ } qw(TABLE SEQUENCE VIEW TRIGGER INDEX));
 
 	return 0 if !$self->_need_check_limited_obj($obj_type);
 
@@ -3171,6 +3176,8 @@ sub _parse_table_body
 				$c_name = "\U$c_name\E";
 			}
 			# Retrieve all columns information
+			next if (!$self->is_in_struct($tb_name, $c_name));
+
 			if (!grep(/^\Q$c_name\E$/i, 'CONSTRAINT','INDEX'))
 			{
 				$cur_c_name = $c_name;
@@ -3517,6 +3524,7 @@ sub read_schema_from_file
 			$idx_name = "\U$idx_name\E";
 			$tb_name =~ s/\s+/ /gs;
 			$tb_name = "\U$tb_name\E";
+			$self->logit("read_schema_from_file:".__LINE__." $tb_name $idx_name \n",2);
 		        next if ($self->_need_check_limited_obj('INDEX') &&
 				!defined($self->_limited_obj_find_int_id('INDEX',$idx_name)));
 		        next if ($self->_need_check_limited_obj('TABLE') &&
