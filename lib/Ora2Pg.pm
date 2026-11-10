@@ -3845,19 +3845,25 @@ sub read_comment_from_file
 
 	my $tid = 0; 
 
-	while ($content =~ s/COMMENT\s+ON\s+TABLE\s+([^\s]+)\s+IS\s+'([^;]+);//is)
+	# The comment is a SQL string literal: any character but a quote, or a doubled
+	# quote ('' is one quote); the statement ends at the closing quote's ';'. Matching
+	# up to the first ';' cut a comment that contains one ("0: no; 1: yes" became
+	# "0: no") and left its tail in $content. Possessive, so a long comment cannot
+	# backtrack. The doubled quotes are undone: the writer doubles them again.
+	while ($content =~ s/COMMENT\s+ON\s+TABLE\s+([^\s]+)\s+IS\s+'((?:[^']++|'')*+)'\s*;//is)
 	{
 		my $tb_name = $1;
 		my $tb_comment = $2;
 		$tb_name =~ s/"//g;
 		$tb_name = "\U$tb_name\E";
-		$tb_comment =~ s/'\s*$//g;
+		$tb_comment =~ s/''/'/g;
 		if (exists $self->{tables}{$tb_name}) {
 			$self->{tables}{$tb_name}{table_info}{comment} = $tb_comment;
 		}
 	}
 
-	while ($content =~ s/COMMENT\s+ON\s+COLUMN\s+(.*?)\s+IS\s*'([^;]+);//is)
+	# Same literal as above.
+	while ($content =~ s/COMMENT\s+ON\s+COLUMN\s+(.*?)\s+IS\s*'((?:[^']++|'')*+)'\s*;//is)
 	{
 		my $tb_name = $1;
 		my $tb_comment = $2;
@@ -3870,7 +3876,7 @@ sub read_comment_from_file
 			$col_name{$i} = $1;
 			$i++;
 		}
-		$tb_comment =~ s/'\s*$//g;
+		$tb_comment =~ s/''/'/g;
 		if ($tb_name =~ s/\.([^\.]+)$//)
 		{
 			my $cname = $1;
